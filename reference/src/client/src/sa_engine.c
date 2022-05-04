@@ -50,11 +50,6 @@ ENGINE* sa_engine_new() {
 
     call_once(&flag, sa_engine_init);
 
-    if (mtx_lock(&engine_mutex) != 0) {
-        ERROR("mtx_lock failed");
-        return engine;
-    }
-
     do {
         engine = ENGINE_new();
         if (engine == NULL) {

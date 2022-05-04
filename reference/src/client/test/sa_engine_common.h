@@ -26,7 +26,7 @@
 #ifndef SA_ENGINE_COMMON_H
 #define SA_ENGINE_COMMON_H
 
-class SAEngineTest {
+class SaEngineTest {
 protected:
     static bool verifyEncrypt(
             std::vector<uint8_t>& encrypted,
@@ -49,9 +49,9 @@ protected:
             int padded);
 };
 
-using SAEngineCipherTestType = std::tuple<int, int, int, int>;
+using SaEngineCipherTestType = std::tuple<int, int, int, int>;
 
-class SAEngineCipherTest : public ::testing::TestWithParam<SAEngineCipherTestType>,
-                           public SAEngineTest {};
+class SaEngineCipherTest : public ::testing::TestWithParam<SaEngineCipherTestType>,
+                           public SaEngineTest {};
 
 #endif //SA_ENGINE_COMMON_H

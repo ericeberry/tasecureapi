@@ -19,7 +19,7 @@
 #include "sa_engine_common.h"
 #include <openssl/evp.h>
 
-bool SAEngineTest::verifyEncrypt(std::vector<uint8_t>& encrypted, std::vector<uint8_t>& clear,
+bool SaEngineTest::verifyEncrypt(std::vector<uint8_t>& encrypted, std::vector<uint8_t>& clear,
         std::vector<uint8_t>& clear_key, std::vector<uint8_t>& iv, std::vector<uint8_t>& aad, std::vector<uint8_t>& tag,
         const EVP_CIPHER* cipher, int padded) {
     std::shared_ptr<EVP_CIPHER_CTX> cipher_ctx(EVP_CIPHER_CTX_new(), EVP_CIPHER_CTX_free);
@@ -69,7 +69,7 @@ bool SAEngineTest::verifyEncrypt(std::vector<uint8_t>& encrypted, std::vector<ui
     return clear == decrypted;
 }
 
-bool SAEngineTest::doEncrypt(std::vector<uint8_t>& encrypted, std::vector<uint8_t>& clear,
+bool SaEngineTest::doEncrypt(std::vector<uint8_t>& encrypted, std::vector<uint8_t>& clear,
         std::vector<uint8_t>& clear_key, std::vector<uint8_t>& iv, std::vector<uint8_t>& aad, std::vector<uint8_t>& tag,
         const EVP_CIPHER* cipher, int padded) {
     encrypted.resize(clear.size() + 16);

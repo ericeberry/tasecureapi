@@ -40,7 +40,7 @@ extern "C" {
 /**
  * Initializes a SecApi3 Engine and returns an instance of it.
  *
- * @return 1 if successful and 0 if not.
+ * @return a new ENGINE if successful or NULL if not.
  */
 ENGINE* sa_engine_new();
 

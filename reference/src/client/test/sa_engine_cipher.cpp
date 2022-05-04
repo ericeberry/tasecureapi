@@ -24,7 +24,7 @@
 
 using namespace client_test_helpers;
 
-TEST_P(SAEngineCipherTest, encryptTest) {
+TEST_P(SaEngineCipherTest, encryptTest) {
     int nid = std::get<0>(GetParam());
     int padded = std::get<1>(GetParam());
     int key_length = std::get<2>(GetParam());
@@ -76,7 +76,7 @@ TEST_P(SAEngineCipherTest, encryptTest) {
     ASSERT_TRUE(verifyEncrypt(encrypted, data, clear_key, iv, aad, tag, cipher, padded));
 }
 
-TEST_P(SAEngineCipherTest, decryptTest) {
+TEST_P(SaEngineCipherTest, decryptTest) {
     int nid = std::get<0>(GetParam());
     int padded = std::get<1>(GetParam());
     int key_length = std::get<2>(GetParam());
@@ -128,7 +128,7 @@ TEST_P(SAEngineCipherTest, decryptTest) {
     ASSERT_EQ(decrypted, data);
 }
 
-TEST_F(SAEngineCipherTest, initSeparateParams) {
+TEST_F(SaEngineCipherTest, initSeparateParams) {
     int nid = NID_aes_128_cbc;
     int padded = 1;
     int key_length = 16;
@@ -174,7 +174,7 @@ TEST_F(SAEngineCipherTest, initSeparateParams) {
 
 INSTANTIATE_TEST_SUITE_P(
         SecApi3EngineCipherTests,
-        SAEngineCipherTest,
+        SaEngineCipherTest,
         ::testing::Values(
 #if OPENSSL_VERSION_NUMBER >= 0x10100000
                 std::make_tuple(NID_chacha20, true, 32, 16),
