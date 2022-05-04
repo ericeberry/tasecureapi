@@ -554,6 +554,12 @@ bool dh_compute(
         const uint8_t* p = public + modulus_size;
         const uint8_t* g = p + modulus_size;
 
+        shared_secret_bytes = memory_secure_alloc(DH_MAX_MOD_SIZE);
+        if (shared_secret_bytes == NULL) {
+            ERROR("memory_secure_alloc failed");
+            break;
+        }
+
 #if OPENSSL_VERSION_NUMBER >= 0x30000000
         other_evp_pkey_ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_DH, NULL);
         if (other_evp_pkey_ctx == NULL) {
@@ -601,9 +607,8 @@ bool dh_compute(
             break;
         }
 
-        memset(temp, 0, DH_MAX_MOD_SIZE);
         size_t written = DH_MAX_MOD_SIZE;
-        if (EVP_PKEY_derive(evp_pkey_ctx, temp, &written) != 1) {
+        if (EVP_PKEY_derive(evp_pkey_ctx, shared_secret_bytes, &written) != 1) {
             ERROR("EVP_PKEY_derive failed");
             break;
         }
@@ -620,21 +625,15 @@ bool dh_compute(
             break;
         }
 
-        int written = DH_compute_key(temp, bn_other_public, dh);
+        int written = DH_compute_key(shared_secret_bytes, bn_other_public, dh);
         DH_free(dh);
         if (written <= 0) {
             ERROR("DH_compute_key failed");
             break;
         }
 #endif
-        shared_secret_bytes = memory_secure_alloc(DH_MAX_MOD_SIZE);
-        if (shared_secret_bytes == NULL) {
-            ERROR("memory_secure_alloc failed");
-            break;
-        }
-
-        memory_memset_unoptimizable(shared_secret_bytes, 0, DH_MAX_MOD_SIZE);
-        memcpy(shared_secret_bytes + modulus_size - written, temp, written);
+        memmove(shared_secret_bytes + modulus_size - written, shared_secret_bytes, written);
+        memory_memset_unoptimizable(shared_secret_bytes, 0, modulus_size - written);
         status = stored_key_create(shared_secret, rights, &header->rights, SA_KEY_TYPE_SYMMETRIC, 0, modulus_size,
                 shared_secret_bytes, modulus_size);
         if (!status) {

@@ -4988,30 +4988,4 @@ namespace client_test_helpers {
         return buffer;
     }
 
-    void log_entry( // NOLINT
-            const char* file,
-            int line,
-            const char* function,
-            const char* format,
-            ...) {
-
-        // get current time
-        time_t current_time = time(nullptr);
-        struct tm local_time = {};
-        localtime_r(&current_time, &local_time);
-
-        // compose new format line with timestamp, log level, file and line numbers
-        char new_format[320];
-        strftime(new_format, sizeof(new_format), "%D %H:%M:%S ", &local_time);
-        snprintf(new_format + 18, sizeof(new_format) - 18, "ERROR %.96s:%d (%.32s): %.128s\n", file, line, function,
-                format);
-
-        // forward to vfprintf
-        va_list args;
-        va_start(args, format);
-        vfprintf(stderr, new_format, args);
-        va_end(args);
-        fflush(stderr);
-    }
-
 } // namespace client_test_helpers

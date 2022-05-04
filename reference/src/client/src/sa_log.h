@@ -1,5 +1,5 @@
 /**
- * Copyright 2020-2022 Comcast Cable Communications Management, LLC
+ * Copyright 2022 Comcast Cable Communications Management, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,25 +16,33 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "sa.h"
-#include "sa_log.h"
-#include "ta_client.h"
+#ifndef SA_LOG_H
+#define SA_LOG_H
 
-sa_status sa_svp_memory_alloc(
-        void** svp_memory,
-        size_t size) {
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-    if (svp_memory == NULL) {
-        ERROR("NULL svp_memory");
-        return SA_STATUS_NULL_PARAMETER;
-    }
+#define ERROR(...) sa_log_entry(__FILE__, __LINE__, __func__, __VA_ARGS__)
 
-    // TODO Soc Vendor: replace this call with a call to allocate secure memory.
-    *svp_memory = malloc(size);
-    if (*svp_memory == NULL) {
-        ERROR("malloc failed");
-        return SA_STATUS_INTERNAL_ERROR;
-    }
+/**
+ * Create a log entry.
+ *
+ * @param[in] file source file.
+ * @param[in] line source line number.
+ * @param[in] function function name.
+ * @param[in] format format string.
+ * @param[in] ... data.
+ */
+void sa_log_entry(
+        const char* file,
+        int line,
+        const char* function,
+        const char* format,
+        ...);
 
-    return SA_STATUS_OK;
+#ifdef __cplusplus
 }
+#endif
+
+#endif //SA_LOG_H
