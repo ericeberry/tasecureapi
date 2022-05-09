@@ -91,7 +91,7 @@ typedef struct {
     bool padding;
     sa_crypto_cipher_context cipher_context;
     uint8_t tag[16];
-} cipher_add_data;
+} cipher_app_data;
 
 static int cipher_nids[] = {
 #if OPENSSL_VERSION_NUMBER >= 0x10100000
@@ -147,11 +147,11 @@ static int cipher_init(
         int enc) {
 
     int result = 0;
-    cipher_add_data* app_data = NULL;
+    cipher_app_data* app_data = NULL;
     do {
         app_data = EVP_CIPHER_CTX_get_app_data(cipher_ctx);
         if (app_data == NULL) {
-            app_data = malloc(sizeof(cipher_add_data));
+            app_data = malloc(sizeof(cipher_app_data));
             app_data->cipher_algorithm = cipher_get_cipher_algorithm(EVP_CIPHER_CTX_nid(cipher_ctx));
             app_data->padding = app_data->cipher_algorithm == SA_CIPHER_ALGORITHM_AES_CBC ||
                                 app_data->cipher_algorithm == SA_CIPHER_ALGORITHM_AES_ECB;
@@ -196,7 +196,7 @@ static int cipher_do_cipher(
 
     int result = -1;
     do {
-        cipher_add_data* app_data = EVP_CIPHER_CTX_get_app_data(cipher_ctx);
+        cipher_app_data* app_data = EVP_CIPHER_CTX_get_app_data(cipher_ctx);
         if (app_data == NULL || app_data->key == NULL) {
             ERROR("NULL app_data");
             break;
@@ -328,7 +328,7 @@ static int cipher_ctrl(
             return 0;
         }
 
-        cipher_add_data* app_data = EVP_CIPHER_CTX_get_app_data(cipher_ctx);
+        cipher_app_data* app_data = EVP_CIPHER_CTX_get_app_data(cipher_ctx);
         if (app_data == NULL) {
             ERROR("NULL app_data");
             return 0;
@@ -353,7 +353,7 @@ static int cipher_ctrl(
             return 0;
         }
 
-        cipher_add_data* app_data = EVP_CIPHER_CTX_get_app_data(cipher_ctx);
+        cipher_app_data* app_data = EVP_CIPHER_CTX_get_app_data(cipher_ctx);
         if (app_data == NULL) {
             ERROR("NULL app_data");
             return 0;
@@ -368,7 +368,7 @@ static int cipher_ctrl(
 }
 
 static int cipher_cleanup(EVP_CIPHER_CTX* cipher_ctx) {
-    cipher_add_data* app_data = EVP_CIPHER_CTX_get_app_data(cipher_ctx);
+    cipher_app_data* app_data = EVP_CIPHER_CTX_get_app_data(cipher_ctx);
     if (app_data != NULL) {
         if (app_data->cipher_context != UINT32_MAX)
             sa_crypto_cipher_release(app_data->cipher_context);
@@ -392,8 +392,11 @@ DECLARE_CIPHER(chacha20, 256, chacha20, EVP_CIPH_ALWAYS_CALL_INIT)
 DECLARE_CIPHER(chacha20, 256, poly1305, EVP_CIPH_ALWAYS_CALL_INIT | EVP_CIPH_FLAG_CUSTOM_CIPHER)
 #endif
 
-int sa_engine_get_ciphers(ENGINE* e, const EVP_CIPHER** cipher, const int** nids, int nid) {
+int sa_get_engine_ciphers(ENGINE* e, const EVP_CIPHER** cipher, const int** nids, int nid) {
     if (!cipher) {
+        if (nids == NULL)
+            return 0;
+
         *nids = cipher_nids;
         return cipher_nids_num;
     }
@@ -449,7 +452,7 @@ int sa_engine_get_ciphers(ENGINE* e, const EVP_CIPHER** cipher, const int** nids
     return 1;
 }
 
-void sa_engine_free_ciphers() {
+void sa_free_engine_ciphers() {
     EVP_CIPHER_meth_free(cipher_aes_128_ecb);
     cipher_aes_128_ecb = NULL;
 

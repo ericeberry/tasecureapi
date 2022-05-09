@@ -16,10 +16,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 #ifndef SA_ENGINE_INTERNAL_H
 #define SA_ENGINE_INTERNAL_H
 
+#include "sa.h"
 #include "sa_common.h"
 #include <openssl/engine.h>
 #include <threads.h>
@@ -55,7 +55,7 @@ extern mtx_t engine_mutex;
  * @param[in] nid the nid for which to return the cipher.
  * @return 1 if successful and 0 if not.
  */
-int sa_engine_get_ciphers(
+int sa_get_engine_ciphers(
         ENGINE* e,
         const EVP_CIPHER** cipher,
         const int** nids,
@@ -64,7 +64,13 @@ int sa_engine_get_ciphers(
 /**
  * Frees all of the created ciphers.
  */
-void sa_engine_free_ciphers();
+void sa_free_engine_ciphers();
+
+int sa_get_engine_pkey_methods(
+        ENGINE* engine,
+        EVP_PKEY_METHOD** method,
+        const int** nids,
+        int nid);
 
 #ifdef __cplusplus
 }

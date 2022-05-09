@@ -31,7 +31,13 @@ mtx_t engine_mutex;
 static once_flag flag = ONCE_FLAG_INIT;
 
 static void sa_engine_shutdown() {
-    sa_engine_free_ciphers();
+    ENGINE* engine = ENGINE_by_id(SA_ENGINE_ID);
+    if (engine != NULL) {
+        ENGINE_remove(engine);
+        ENGINE_free(engine);
+    }
+
+    sa_free_engine_ciphers();
     mtx_destroy(&engine_mutex);
 }
 
@@ -45,33 +51,39 @@ static void sa_engine_init() {
     }
 }
 
-ENGINE* sa_engine_new() {
+ENGINE* sa_get_engine() {
     ENGINE* engine = NULL;
 
     call_once(&flag, sa_engine_init);
 
-    do {
-        engine = ENGINE_new();
-        if (engine == NULL) {
-            ERROR("ENGINE_new failed");
-            break;
-        }
+    if (mtx_lock(&engine_mutex) != 0) {
+        ERROR("mtx_lock failed");
+        return NULL;
+    }
 
-        if (!ENGINE_set_id(engine, SA_ENGINE_ID) ||
-                !ENGINE_set_name(engine, SA_ENGINE_NAME) ||
-                !ENGINE_set_ciphers(engine, sa_engine_get_ciphers) ||
-                !ENGINE_init(engine)) {
-            ENGINE_free(engine);
-            engine = NULL;
-            ERROR("Engine init failed failed");
-            break;
-        }
-    } while (false);
+    engine = ENGINE_by_id(SA_ENGINE_ID);
+    if (engine == NULL) {
+        do {
+            engine = ENGINE_new();
+            if (engine == NULL) {
+                ERROR("ENGINE_new failed");
+                break;
+            }
 
+            if (!ENGINE_set_id(engine, SA_ENGINE_ID) ||
+                    !ENGINE_set_name(engine, SA_ENGINE_NAME) ||
+                    !ENGINE_set_ciphers(engine, sa_get_engine_ciphers) ||
+                    !ENGINE_set_pkey_meths(engine, sa_get_engine_pkey_methods)) {
+                ENGINE_free(engine);
+                engine = NULL;
+                ERROR("Engine init failed failed");
+                break;
+            }
+
+            ENGINE_add(engine);
+        } while (false);
+    }
+
+    mtx_unlock(&engine_mutex);
     return engine;
-}
-
-void sa_engine_free(ENGINE* engine) {
-    ENGINE_finish(engine);
-    ENGINE_free(engine);
 }

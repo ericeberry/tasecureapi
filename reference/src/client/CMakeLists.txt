@@ -48,7 +48,7 @@ add_library(saclient SHARED
         src/sa_engine.c
         src/sa_engine_cipher.c
         src/sa_engine_internal.h
-#        src/sa_engine_rsa.c
+        src/sa_engine_pkey.c
         src/sa_log.c
         src/sa_log.h
         )
@@ -165,6 +165,7 @@ add_executable(saclienttest
         test/sa_engine_cipher.cpp
         test/sa_engine_common.cpp
         test/sa_engine_common.h
+        test/sa_engine_pkey.cpp
         test/sa_get_device_id.cpp
         test/sa_get_name.cpp
         test/sa_get_ta_uuid.cpp

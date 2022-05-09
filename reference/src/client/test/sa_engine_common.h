@@ -54,4 +54,9 @@ using SaEngineCipherTestType = std::tuple<int, int, int, int>;
 class SaEngineCipherTest : public ::testing::TestWithParam<SaEngineCipherTestType>,
                            public SaEngineTest {};
 
+using SaEnginePkeyTestType = std::tuple<int, int>;
+
+class SaEnginePkeyTest : public ::testing::TestWithParam<SaEnginePkeyTestType>,
+                           public SaEngineTest {};
+
 #endif //SA_ENGINE_COMMON_H

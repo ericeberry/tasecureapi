@@ -22,15 +22,16 @@
  * SecApi3Engine implements an OpenSSL Engine that delegates its implementation to SecApi 3. Users can use the OpenSSL
  * API, but SecApi3 will be used to perform the cryptographic processing.
  *
- * To use an engine, users must call sa_engine_new(). This will create the engine an instance of it. User will submit
+ * To use an engine, users must call sa_get_engine(). This will create the engine an instance of it. User will submit
  * the Engine as the impl parameter in calls like EVP_EncryptInit_ex and EVP_SignInit_ex. Once finished with the Engine,
- * users must call sa_engine_free. APIs that take an unsigned char* key parameter with a pointer to the sa_key value
+ * users must call ENGINE_free. APIs that take an unsigned char* key parameter with a pointer to the sa_key value
  * identifying the SecApi 3 key.
  */
 
 #ifndef SA_ENGINE_H
 #define SA_ENGINE_H
 
+#include "sa.h"
 #include <openssl/engine.h>
 
 #ifdef __cplusplus
@@ -38,18 +39,19 @@ extern "C" {
 #endif
 
 /**
- * Initializes a SecApi3 Engine and returns an instance of it.
+ * Returns the SecApi3 engine and initializes it if it hasn't been created.
  *
  * @return a new ENGINE if successful or NULL if not.
  */
-ENGINE* sa_engine_new();
+ENGINE* sa_get_engine();
 
 /**
- * Frees an SecApi3 Engine instance.
+ * Creates an EVP_PKEY from an sa_key.
  *
- * @param[in] engine the instance to free.
+ * @param key the sa_key to lookup.
+ * @return the created EVP_PKEY.
  */
-void sa_engine_free(ENGINE* engine);
+EVP_PKEY* sa_key_to_EVP_PKEY(sa_key key);
 
 #ifdef __cplusplus
 }
