@@ -16,6 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include "client_test_helpers.h"
 #include "sa.h"
 #include "sa_engine.h"
 #include <gtest/gtest.h>
@@ -54,9 +55,22 @@ using SaEngineCipherTestType = std::tuple<int, int, int, int>;
 class SaEngineCipherTest : public ::testing::TestWithParam<SaEngineCipherTestType>,
                            public SaEngineTest {};
 
-using SaEnginePkeyTestType = std::tuple<int, int>;
+using SaEnginePkeySignTestType = std::tuple<sa_key_type, size_t, int, int, int>;
 
-class SaEnginePkeyTest : public ::testing::TestWithParam<SaEnginePkeyTestType>,
-                           public SaEngineTest {};
+class SaEnginePkeySignTest : public ::testing::TestWithParam<SaEnginePkeySignTestType>,
+                             public SaEngineTest {};
+
+using SaEnginePkeySignEdTestType = std::tuple<sa_key_type, size_t>;
+
+class SaEnginePkeySignEdTest : public ::testing::TestWithParam<SaEnginePkeySignEdTestType>,
+                               public SaEngineTest {};
+
+using SaEnginePkcs7TestType = std::tuple<sa_key_type, size_t>;
+
+class SaEnginePkcs7Test : public ::testing::TestWithParam<SaEnginePkcs7TestType>,
+                          public SaEngineTest {};
+
+class SaEnginePkcs7EdTest : public ::testing::TestWithParam<SaEnginePkcs7TestType>,
+                          public SaEngineTest {};
 
 #endif //SA_ENGINE_COMMON_H

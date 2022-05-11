@@ -123,10 +123,6 @@ protected:
 
 private:
     const static std::vector<uint8_t> TEST_KEY;
-
-    static std::shared_ptr<EC_POINT> ec_point_import_xy(
-            sa_elliptic_curve curve,
-            std::vector<uint8_t> in);
 };
 
 using SaKeyType = std::tuple<sa_key_type, size_t>;

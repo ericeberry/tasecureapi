@@ -38,6 +38,7 @@ static void sa_engine_shutdown() {
     }
 
     sa_free_engine_ciphers();
+    sa_free_engine_digests();
     mtx_destroy(&engine_mutex);
 }
 
@@ -73,6 +74,7 @@ ENGINE* sa_get_engine() {
             if (!ENGINE_set_id(engine, SA_ENGINE_ID) ||
                     !ENGINE_set_name(engine, SA_ENGINE_NAME) ||
                     !ENGINE_set_ciphers(engine, sa_get_engine_ciphers) ||
+                    !ENGINE_set_digests(engine, sa_get_engine_digests) ||
                     !ENGINE_set_pkey_meths(engine, sa_get_engine_pkey_methods)) {
                 ENGINE_free(engine);
                 engine = NULL;

@@ -19,6 +19,9 @@
 #ifndef SA_COMMON_H
 #define SA_COMMON_H
 
+#include "sa.h"
+#include <openssl/evp.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -56,6 +59,83 @@ extern "C" {
 #define CHACHA20_NONCE_LENGTH 12
 #define CHACHA20_COUNTER_LENGTH 4
 #define CHACHA20_TAG_LENGTH 16
+
+#if OPENSSL_VERSION_NUMBER < 0x10100000
+#define RSA_PSS_SALTLEN_DIGEST -1
+#define RSA_PSS_SALTLEN_AUTO -2
+#define RSA_PSS_SALTLEN_MAX -3
+#endif
+
+/**
+ * Imports an RSA public key.
+ *
+ * @param[in] in the RSA public key bytes.
+ * @param[in] in_length the length of the RSA public key bytes.
+ * @return an EVP_PKEY encapsulating the RSA public key.
+ */
+EVP_PKEY* rsa_import_public(
+        const uint8_t* in,
+        size_t in_length);
+
+/**
+ * Deteremines if the curve is a P-256, P-384, or P-521 curve.
+ *
+ * @param[in] curve the EC curve.
+ * @return true if it is.
+ */
+bool is_pcurve(sa_elliptic_curve curve);
+
+/**
+ * Returns the size of the EC key based on the curve.
+ *
+ * @param[in] curve the EC curve.
+ * @return the size of the EC curve.
+ */
+size_t ec_get_key_size(sa_elliptic_curve curve);
+
+/**
+ * Returns the OpenSSL key type (NID value).
+ *
+ * @param[in] curve the EC curve.
+ * @return the OpenSSL type.
+ */
+int ec_get_type(sa_elliptic_curve curve);
+
+/**
+ * Imports an RSA public key.
+ *
+ * @param[in] curve the EC curve.
+ * @param[in] in the RSA public key bytes.
+ * @param[in] in_length the length of the RSA public key bytes.
+ * @return an EVP_PKEY encapsulating the RSA public key.
+ */
+EVP_PKEY* ec_import_public(
+        sa_elliptic_curve curve,
+        const uint8_t* in,
+        size_t in_length);
+
+/**
+ * Encodes an EC signature in OpenSSL format ASN.1{r,s}.
+ *
+ * @param[out] out the EC signature encoded in OpenSSL format.
+ * @param[out] out_length the length of the encoded signature.
+ * @param[in] in the raw signature {r,s} to encode.
+ * @param[in] in_length
+ * @return true if succesful, false if not.
+ */
+bool ec_encode_signature(
+        void* out,
+        size_t* out_length,
+        const void* in,
+        size_t in_length);
+
+/**
+ * Creates an EVP_PKEY public key from an sa_key.
+ *
+ * @param[in] key the sa_key to create an EVP_PKEY from.
+ * @return the EVP_PKEY.
+ */
+EVP_PKEY* get_public_key(sa_key key);
 
 #ifdef __cplusplus
 }

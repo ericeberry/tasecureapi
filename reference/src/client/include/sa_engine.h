@@ -48,7 +48,7 @@ ENGINE* sa_get_engine();
 /**
  * Creates an EVP_PKEY from an sa_key.
  *
- * @param key the sa_key to lookup.
+ * @param[in] key the sa_key to lookup.
  * @return the created EVP_PKEY.
  */
 EVP_PKEY* sa_key_to_EVP_PKEY(sa_key key);

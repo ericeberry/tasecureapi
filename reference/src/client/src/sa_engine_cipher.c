@@ -19,9 +19,11 @@
 #include "sa.h"
 #include "sa_engine_internal.h"
 #include "sa_log.h"
-#include <memory.h>
 #include <openssl/engine.h>
 #include <threads.h>
+#if OPENSSL_VERSION_NUMBER < 0x30000000
+#include <memory.h>
+#endif
 
 #if OPENSSL_VERSION_NUMBER >= 0x10100000
 

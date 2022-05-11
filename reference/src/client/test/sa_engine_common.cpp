@@ -19,9 +19,17 @@
 #include "sa_engine_common.h"
 #include <openssl/evp.h>
 
-bool SaEngineTest::verifyEncrypt(std::vector<uint8_t>& encrypted, std::vector<uint8_t>& clear,
-        std::vector<uint8_t>& clear_key, std::vector<uint8_t>& iv, std::vector<uint8_t>& aad, std::vector<uint8_t>& tag,
-        const EVP_CIPHER* cipher, int padded) {
+using namespace client_test_helpers;
+
+bool SaEngineTest::verifyEncrypt(
+        std::vector<uint8_t>& encrypted,
+        std::vector<uint8_t>& clear,
+        std::vector<uint8_t>& clear_key,
+        std::vector<uint8_t>& iv,
+        std::vector<uint8_t>& aad,
+        std::vector<uint8_t>& tag,
+        const EVP_CIPHER* cipher,
+        int padded) {
     std::shared_ptr<EVP_CIPHER_CTX> cipher_ctx(EVP_CIPHER_CTX_new(), EVP_CIPHER_CTX_free);
 
     if (EVP_DecryptInit(cipher_ctx.get(), cipher, clear_key.data(), iv.data()) != 1) {
@@ -69,9 +77,15 @@ bool SaEngineTest::verifyEncrypt(std::vector<uint8_t>& encrypted, std::vector<ui
     return clear == decrypted;
 }
 
-bool SaEngineTest::doEncrypt(std::vector<uint8_t>& encrypted, std::vector<uint8_t>& clear,
-        std::vector<uint8_t>& clear_key, std::vector<uint8_t>& iv, std::vector<uint8_t>& aad, std::vector<uint8_t>& tag,
-        const EVP_CIPHER* cipher, int padded) {
+bool SaEngineTest::doEncrypt(
+        std::vector<uint8_t>& encrypted,
+        std::vector<uint8_t>& clear,
+        std::vector<uint8_t>& clear_key,
+        std::vector<uint8_t>& iv,
+        std::vector<uint8_t>& aad,
+        std::vector<uint8_t>& tag,
+        const EVP_CIPHER* cipher,
+        int padded) {
     encrypted.resize(clear.size() + 16);
     std::shared_ptr<EVP_CIPHER_CTX> cipher_ctx(EVP_CIPHER_CTX_new(), EVP_CIPHER_CTX_free);
 
