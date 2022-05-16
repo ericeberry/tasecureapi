@@ -28,6 +28,7 @@
 extern "C" {
 #endif
 
+// These do not follow the convention of all upper case to make the DECLARE_CIPHER macro work properly.
 #define BLOCK_SIZE_aes_cbc 16
 #define BLOCK_SIZE_aes_ecb 16
 #define BLOCK_SIZE_aes_ctr 1

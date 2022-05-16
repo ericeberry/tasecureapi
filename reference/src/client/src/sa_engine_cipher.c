@@ -55,7 +55,7 @@
 
 #else
 
-#define EVP_CIPHER_meth_free free
+#define EVP_CIPHER_meth_free OPENSSL_free
 #define DECLARE_CIPHER(algorithm, keysize, mode, cipher_flags) \
     static EVP_CIPHER* cipher_##algorithm##_##keysize##_##mode = NULL; \
     static const EVP_CIPHER* get_cipher_##algorithm##_##keysize##_##mode() { \
@@ -64,7 +64,7 @@
             return NULL; \
         } \
         if (cipher_##algorithm##_##keysize##_##mode == NULL) { \
-            cipher_##algorithm##_##keysize##_##mode = malloc(sizeof(EVP_CIPHER)); \
+            cipher_##algorithm##_##keysize##_##mode = OPENSSL_malloc(sizeof(EVP_CIPHER)); \
             cipher_##algorithm##_##keysize##_##mode->nid = NID_##algorithm##_##keysize##_##mode; \
             cipher_##algorithm##_##keysize##_##mode->block_size = BLOCK_SIZE_##algorithm##_##mode; \
             cipher_##algorithm##_##keysize##_##mode->key_len = SYM_##keysize##_KEY_SIZE; \

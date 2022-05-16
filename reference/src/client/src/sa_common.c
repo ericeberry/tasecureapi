@@ -134,7 +134,7 @@ EVP_PKEY* ec_import_public(
 
             ec_key = EC_KEY_new_by_curve_name(type);
             if (ec_key == NULL) {
-                ERROR("EC_KEY_new failed");
+                ERROR("EC_KEY_new_by_curve_name failed");
                 break;
             }
 
@@ -160,7 +160,7 @@ EVP_PKEY* ec_import_public(
                  curve == SA_ELLIPTIC_CURVE_X25519 || curve == SA_ELLIPTIC_CURVE_X448) {
             evp_pkey = EVP_PKEY_new_raw_public_key(type, NULL, in, in_length);
             if (evp_pkey == NULL) {
-                ERROR("EVP_PKEY_new failed");
+                ERROR("EVP_PKEY_new_raw_public_key failed");
                 break;
             }
         }

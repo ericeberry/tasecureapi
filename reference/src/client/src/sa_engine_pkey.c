@@ -261,7 +261,7 @@ static sa_key get_pkey_key_data(EVP_PKEY* evp_pkey) {
 static bool set_pkey_key_data(EVP_PKEY** evp_pkey, sa_key key) {
     pkey_key_data* key_data = EVP_PKEY_get_ex_data(*evp_pkey, get_ex_data_index());
     if (key_data == NULL) {
-        ERROR("OPENSSL_malloc failed");
+        ERROR("EVP_PKEY_get_ex_data failed");
         return false;
     }
 
@@ -426,7 +426,7 @@ static int pkey_sign(
     sa_key key = get_pkey_key_data(evp_pkey);
     sa_header header;
     if (sa_key_header(&header, key) != SA_STATUS_OK) {
-        ERROR("NULL evp_pkey");
+        ERROR("NULL sa_key_header");
         return 0;
     }
 
@@ -466,7 +466,7 @@ static int pkey_sign(
                         salt_length--;
 
                     if (salt_length < 0) {
-                        ERROR("digest_algorithm unknown");
+                        ERROR("salt_length unknown");
                         return 0;
                     }
                 } else
@@ -581,7 +581,7 @@ static int pkey_verify(
 
         verify_pkey_ctx = EVP_PKEY_CTX_new(verify_pkey, NULL);
         if (verify_pkey_ctx == NULL) {
-            ERROR("NULL verify_pkey_ctx");
+            ERROR("EVP_PKEY_CTX_new failed");
             break;
         }
 
@@ -856,10 +856,22 @@ static int pkey_ctrl(
             *((int*) p2) = app_data->pss_salt_length;
             break;
 
-        case EVP_PKEY_CTRL_PKCS7_SIGN:
-            // Just checks if approved for PKCS7 signing.
-            break;
+        case EVP_PKEY_CTRL_PKCS7_SIGN: {
+            // Just checks if valid key type for PKCS7 signing.
+            EVP_PKEY* evp_pkey = EVP_PKEY_CTX_get0_pkey(evp_pkey_ctx);
+            if (evp_pkey == NULL) {
+                ERROR("EVP_PKEY_CTX_get0_pkey failed");
+                return 0;
+            }
 
+            int key_type = EVP_PKEY_base_id(evp_pkey);
+            if (key_type != EVP_PKEY_RSA && key_type != EVP_PKEY_EC) {
+                ERROR("Invalid key_type for PKCS7");
+                return 0;
+            }
+
+            break;
+        }
         default:
             return -2;
     }
