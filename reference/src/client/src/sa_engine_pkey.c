@@ -386,6 +386,12 @@ static int pkey_signverify_init(EVP_PKEY_CTX* evp_pkey_ctx) {
         return 0;
     }
 
+    int type = EVP_PKEY_base_id(evp_pkey);
+    if (type != EVP_PKEY_RSA && type != EVP_PKEY_EC) {
+        ERROR("Invalid key type for sign or verify");
+        return 0;
+    }
+
     return 1;
 }
 
@@ -764,30 +770,161 @@ static int pkey_digestverify(
 }
 #endif
 
-static int pkey_encrypt_init(EVP_PKEY_CTX* evp_pkey_ctx) {
-    return 0;
+static int pkey_encryptdecrypt_init(EVP_PKEY_CTX* evp_pkey_ctx) {
+    EVP_PKEY* evp_pkey = EVP_PKEY_CTX_get0_pkey(evp_pkey_ctx);
+    if (evp_pkey == NULL) {
+        ERROR("NULL evp_pkey");
+        return 0;
+    }
+
+    int type = EVP_PKEY_base_id(evp_pkey);
+    if (type != EVP_PKEY_RSA) {
+        ERROR("Invalid key type for encrypt or decrypt");
+        return 0;
+    }
+
+    return 1;
 }
 
 static int pkey_encrypt(
         EVP_PKEY_CTX* evp_pkey_ctx,
         unsigned char* out,
-        size_t* outlen,
+        size_t* out_length,
         const unsigned char* in,
-        size_t inlen) {
-    return 0;
-}
+        size_t in_length) {
 
-static int pkey_decrypt_init(EVP_PKEY_CTX* evp_pkey_ctx) {
-    return 0;
+    if (evp_pkey_ctx == NULL) {
+        ERROR("NULL evp_pkey_ctx");
+        return 0;
+    }
+
+    if (out_length == NULL) {
+        ERROR("NULL out_length");
+        return 0;
+    }
+
+    if (in == NULL) {
+        ERROR("NULL in");
+        return 0;
+    }
+
+    pkey_app_data* app_data = EVP_PKEY_CTX_get_app_data(evp_pkey_ctx);
+    if (app_data == NULL) {
+        ERROR("NULL app_data");
+        return 0;
+    }
+
+    EVP_PKEY* evp_pkey = EVP_PKEY_CTX_get0_pkey(evp_pkey_ctx);
+    if (evp_pkey == NULL) {
+        ERROR("NULL evp_pkey");
+        return 0;
+    }
+
+    int result = 0;
+    EVP_PKEY* encrypt_pkey = NULL;
+    EVP_PKEY_CTX* encrypt_pkey_ctx = NULL;
+    do {
+        sa_key encrypt_key = get_pkey_key_data(evp_pkey);
+        encrypt_pkey = get_public_key(encrypt_key);
+        if (encrypt_pkey == NULL) {
+            ERROR("NULL encrypt_key");
+            break;
+        }
+
+        encrypt_pkey_ctx = EVP_PKEY_CTX_new(encrypt_pkey, NULL);
+        if (encrypt_pkey_ctx == NULL) {
+            ERROR("EVP_PKEY_CTX_new failed");
+            break;
+        }
+
+        if (EVP_PKEY_encrypt_init(encrypt_pkey_ctx) != 1) {
+            ERROR("EVP_PKEY_encrypt_init failed");
+            break;
+        }
+
+        if (EVP_PKEY_CTX_set_rsa_padding(encrypt_pkey_ctx, app_data->padding_mode) != 1) {
+            ERROR("EVP_PKEY_CTX_set_rsa_padding failed");
+            break;
+        }
+
+        if (EVP_PKEY_encrypt(encrypt_pkey_ctx, out, out_length, in, in_length) != 1) {
+            ERROR("EVP_PKEY_encrypt");
+            break;
+        }
+
+        result = 1;
+    } while (false);
+
+    EVP_PKEY_CTX_free(encrypt_pkey_ctx);
+    EVP_PKEY_free(encrypt_pkey);
+    return result;
 }
 
 static int pkey_decrypt(
         EVP_PKEY_CTX* evp_pkey_ctx,
         unsigned char* out,
-        size_t* outlen,
+        size_t* out_length,
         const unsigned char* in,
-        size_t inlen) {
-    return 0;
+        size_t in_length) {
+
+    if (evp_pkey_ctx == NULL) {
+        ERROR("NULL evp_pkey_ctx");
+        return 0;
+    }
+
+    if (out_length == NULL) {
+        ERROR("NULL signature_length");
+        return 0;
+    }
+
+    if (in == NULL) {
+        ERROR("NULL data");
+        return 0;
+    }
+
+    pkey_app_data* app_data = EVP_PKEY_CTX_get_app_data(evp_pkey_ctx);
+    if (app_data == NULL) {
+        ERROR("NULL app_data");
+        return 0;
+    }
+
+    EVP_PKEY* evp_pkey = EVP_PKEY_CTX_get0_pkey(evp_pkey_ctx);
+    if (evp_pkey == NULL) {
+        ERROR("NULL evp_pkey");
+        return 0;
+    }
+
+    sa_key key = get_pkey_key_data(evp_pkey);
+    sa_header header;
+    if (sa_key_header(&header, key) != SA_STATUS_OK) {
+        ERROR("NULL sa_key_header");
+        return 0;
+    }
+
+    sa_cipher_algorithm cipher_algorithm;
+    if (app_data->padding_mode == RSA_PKCS1_PADDING)
+        cipher_algorithm = SA_CIPHER_ALGORITHM_RSA_PKCS1V15;
+    else if (app_data->padding_mode == RSA_PKCS1_OAEP_PADDING)
+        cipher_algorithm = SA_CIPHER_ALGORITHM_RSA_OAEP;
+
+    sa_crypto_cipher_context cipher_context;
+    sa_status status = sa_crypto_cipher_init(&cipher_context, cipher_algorithm, SA_CIPHER_MODE_DECRYPT, key, NULL);
+    if (status != SA_STATUS_OK) {
+        ERROR("sa_crypto_cipher_init failed");
+        return 0;
+    }
+
+    sa_buffer out_buffer = {SA_BUFFER_TYPE_CLEAR, .context.clear = {out, *out_length, 0}};
+    sa_buffer in_buffer = {SA_BUFFER_TYPE_CLEAR, .context.clear = {(void*) in, in_length, 0}};
+    size_t bytes_to_process = in_length;
+    status = sa_crypto_cipher_process(out == NULL ? NULL : &out_buffer, cipher_context, &in_buffer, &bytes_to_process);
+    if (status != SA_STATUS_OK) {
+        ERROR("sa_crypto_cipher_process failed");
+        return 0;
+    }
+
+    *out_length = bytes_to_process;
+    return 1;
 }
 
 static int pkey_ctrl(
@@ -1019,8 +1156,8 @@ int sa_get_engine_pkey_methods(
             rsa_pkey_method = get_pkey_method(EVP_PKEY_RSA, false);
             EVP_PKEY_meth_set_sign(rsa_pkey_method, pkey_signverify_init, pkey_sign);
             EVP_PKEY_meth_set_verify(rsa_pkey_method, pkey_signverify_init, pkey_verify);
-            EVP_PKEY_meth_set_encrypt(rsa_pkey_method, pkey_encrypt_init, pkey_encrypt);
-            EVP_PKEY_meth_set_decrypt(rsa_pkey_method, pkey_decrypt_init, pkey_decrypt);
+            EVP_PKEY_meth_set_encrypt(rsa_pkey_method, pkey_encryptdecrypt_init, pkey_encrypt);
+            EVP_PKEY_meth_set_decrypt(rsa_pkey_method, pkey_encryptdecrypt_init, pkey_decrypt);
         }
 
         *method = rsa_pkey_method;

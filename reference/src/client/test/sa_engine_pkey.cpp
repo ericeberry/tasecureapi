@@ -403,6 +403,101 @@ TEST_P(SaEnginePkeySignEdTest, digestSignTest) {
             1);
 }
 
+TEST_P(SaEnginePkeyEncryptTest, encryptTest) {
+    auto key_type = std::get<0>(GetParam());
+    auto key_length = std::get<1>(GetParam());
+    auto padding = std::get<2>(GetParam());
+
+    std::vector<uint8_t> clear_key;
+    sa_elliptic_curve curve;
+    auto key = create_sa_key(key_type, key_length, clear_key, curve);
+    ASSERT_NE(key, nullptr);
+    if (*key == UNSUPPORTED_KEY)
+        GTEST_SKIP() << "key type not supported";
+
+    std::shared_ptr<ENGINE> engine(sa_get_engine(), ENGINE_free);
+    ASSERT_NE(engine, nullptr);
+    std::shared_ptr<EVP_PKEY> evp_pkey(sa_key_to_EVP_PKEY(*key), EVP_PKEY_free);
+    ASSERT_NE(evp_pkey, nullptr);
+
+    auto data = random(32);
+    std::vector<uint8_t> encrypted_data;
+    std::shared_ptr<EVP_PKEY_CTX> encrypt_pkey_ctx(EVP_PKEY_CTX_new(evp_pkey.get(), engine.get()), EVP_PKEY_CTX_free);
+    ASSERT_NE(encrypt_pkey_ctx, nullptr);
+    ASSERT_EQ(EVP_PKEY_encrypt_init(encrypt_pkey_ctx.get()), 1);
+    ASSERT_EQ(EVP_PKEY_CTX_set_rsa_padding(encrypt_pkey_ctx.get(), padding), 1);
+    size_t encrypted_data_length = 0;
+    ASSERT_EQ(EVP_PKEY_encrypt(encrypt_pkey_ctx.get(), NULL, &encrypted_data_length, data.data(), data.size()), 1);
+    encrypted_data.resize(encrypted_data_length);
+    std::shared_ptr<EVP_MD_CTX> evp_md_verify_ctx(EVP_MD_CTX_new(), EVP_MD_CTX_free);
+    int result = EVP_PKEY_encrypt(encrypt_pkey_ctx.get(), encrypted_data.data(), &encrypted_data_length, data.data(),
+            data.size());
+    ASSERT_EQ(result, 1);
+
+    std::vector<uint8_t> decrypted_data;
+    std::shared_ptr<EVP_PKEY_CTX> decrypt_pkey_ctx(EVP_PKEY_CTX_new(evp_pkey.get(), engine.get()), EVP_PKEY_CTX_free);
+    ASSERT_NE(decrypt_pkey_ctx, nullptr);
+    ASSERT_EQ(EVP_PKEY_decrypt_init(decrypt_pkey_ctx.get()), 1);
+    ASSERT_EQ(EVP_PKEY_CTX_set_rsa_padding(decrypt_pkey_ctx.get(), padding), 1);
+    size_t decrypted_data_length = 0;
+    result = EVP_PKEY_decrypt(decrypt_pkey_ctx.get(), NULL, &decrypted_data_length, encrypted_data.data(),
+            encrypted_data.size());
+    ASSERT_EQ(result, 1);
+    decrypted_data.resize(decrypted_data_length);
+    result = EVP_PKEY_decrypt(decrypt_pkey_ctx.get(), decrypted_data.data(), &decrypted_data_length,
+            encrypted_data.data(), encrypted_data.size());
+    ASSERT_EQ(result, 1);
+    decrypted_data.resize(decrypted_data_length);
+    ASSERT_EQ(decrypted_data, data);
+}
+
+TEST_F(SaEnginePkeyEncryptTest, defaultPaddingTest) {
+    sa_key_type key_type = SA_KEY_TYPE_RSA;
+    size_t key_length = RSA_2048_BYTE_LENGTH;
+    int padding = RSA_PKCS1_PADDING;
+
+    std::vector<uint8_t> clear_key;
+    sa_elliptic_curve curve;
+    auto key = create_sa_key(key_type, key_length, clear_key, curve);
+    ASSERT_NE(key, nullptr);
+    if (*key == UNSUPPORTED_KEY)
+        GTEST_SKIP() << "key type not supported";
+
+    std::shared_ptr<ENGINE> engine(sa_get_engine(), ENGINE_free);
+    ASSERT_NE(engine, nullptr);
+    std::shared_ptr<EVP_PKEY> evp_pkey(sa_key_to_EVP_PKEY(*key), EVP_PKEY_free);
+    ASSERT_NE(evp_pkey, nullptr);
+
+    auto data = random(32);
+    std::vector<uint8_t> encrypted_data;
+    std::shared_ptr<EVP_PKEY_CTX> encrypt_pkey_ctx(EVP_PKEY_CTX_new(evp_pkey.get(), engine.get()), EVP_PKEY_CTX_free);
+    ASSERT_NE(encrypt_pkey_ctx, nullptr);
+    ASSERT_EQ(EVP_PKEY_encrypt_init(encrypt_pkey_ctx.get()), 1);
+    size_t encrypted_data_length = 0;
+    ASSERT_EQ(EVP_PKEY_encrypt(encrypt_pkey_ctx.get(), NULL, &encrypted_data_length, data.data(), data.size()), 1);
+    encrypted_data.resize(encrypted_data_length);
+    std::shared_ptr<EVP_MD_CTX> evp_md_verify_ctx(EVP_MD_CTX_new(), EVP_MD_CTX_free);
+    int result = EVP_PKEY_encrypt(encrypt_pkey_ctx.get(), encrypted_data.data(), &encrypted_data_length, data.data(),
+            data.size());
+    ASSERT_EQ(result, 1);
+
+    std::vector<uint8_t> decrypted_data;
+    std::shared_ptr<EVP_PKEY_CTX> decrypt_pkey_ctx(EVP_PKEY_CTX_new(evp_pkey.get(), engine.get()), EVP_PKEY_CTX_free);
+    ASSERT_NE(decrypt_pkey_ctx, nullptr);
+    ASSERT_EQ(EVP_PKEY_decrypt_init(decrypt_pkey_ctx.get()), 1);
+    ASSERT_EQ(EVP_PKEY_CTX_set_rsa_padding(decrypt_pkey_ctx.get(), padding), 1);
+    size_t decrypted_data_length = 0;
+    result = EVP_PKEY_decrypt(decrypt_pkey_ctx.get(), NULL, &decrypted_data_length, encrypted_data.data(),
+            encrypted_data.size());
+    ASSERT_EQ(result, 1);
+    decrypted_data.resize(decrypted_data_length);
+    result = EVP_PKEY_decrypt(decrypt_pkey_ctx.get(), decrypted_data.data(), &decrypted_data_length,
+            encrypted_data.data(), encrypted_data.size());
+    ASSERT_EQ(result, 1);
+    decrypted_data.resize(decrypted_data_length);
+    ASSERT_EQ(decrypted_data, data);
+}
+
 INSTANTIATE_TEST_SUITE_P(
         SaEnginePkeyEdTests,
         SaEnginePkeySignEdTest,
@@ -440,3 +535,11 @@ INSTANTIATE_TEST_SUITE_P(
                 ::testing::Values(NID_sha1, NID_sha256, NID_sha384, NID_sha512),
                 ::testing::Values(0),
                 ::testing::Values(0)));
+
+INSTANTIATE_TEST_SUITE_P(
+        SaEnginePkeyEncryptTests,
+        SaEnginePkeyEncryptTest,
+        ::testing::Combine(
+                ::testing::Values(SA_KEY_TYPE_RSA),
+                ::testing::Values(RSA_1024_BYTE_LENGTH, RSA_2048_BYTE_LENGTH, RSA_3072_BYTE_LENGTH, RSA_4096_BYTE_LENGTH),
+                ::testing::Values(RSA_PKCS1_PADDING, RSA_PKCS1_OAEP_PADDING)));
