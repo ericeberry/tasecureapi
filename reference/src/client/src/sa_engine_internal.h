@@ -16,10 +16,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 #ifndef SA_ENGINE_INTERNAL_H
 #define SA_ENGINE_INTERNAL_H
 
+#include "sa.h"
 #include "sa_common.h"
 #include <openssl/engine.h>
 #include <threads.h>
@@ -28,6 +28,7 @@
 extern "C" {
 #endif
 
+// These do not follow the convention of all upper case to make the DECLARE_CIPHER macro work properly.
 #define BLOCK_SIZE_aes_cbc 16
 #define BLOCK_SIZE_aes_ecb 16
 #define BLOCK_SIZE_aes_ctr 1
@@ -46,7 +47,7 @@ extern "C" {
 extern mtx_t engine_mutex;
 
 /**
- * Returns a ciphers for the SecApi3 Engine as requested by nid. If the ciphers parameter is NULL, returns the list of
+ * Returns a cipher for the SecApi3 Engine as requested by nid. If the ciphers parameter is NULL, returns the list of
  * nids supported by this engine.
  *
  * @param[in] engine the engine instance.
@@ -55,7 +56,7 @@ extern mtx_t engine_mutex;
  * @param[in] nid the nid for which to return the cipher.
  * @return 1 if successful and 0 if not.
  */
-int sa_engine_get_ciphers(
+int sa_get_engine_ciphers(
         ENGINE* e,
         const EVP_CIPHER** cipher,
         const int** nids,
@@ -64,7 +65,44 @@ int sa_engine_get_ciphers(
 /**
  * Frees all of the created ciphers.
  */
-void sa_engine_free_ciphers();
+void sa_free_engine_ciphers();
+
+/**
+ * Returns a digest for the SecApi3 Engine as requested by nid. If the digests parameter is NULL, returns the list of
+ * nids supported by this engine.
+ *
+ * @param[in] engine the engine instance.
+ * @param[out] evp_md the digest referenced by the nid.
+ * @param[out] nids the list of nids supported by this engine if evp_md is NULL.
+ * @param[in] nid the nid for which to return the digest.
+ * @return 1 if successful and 0 if not.
+ */
+int sa_get_engine_digests(
+        ENGINE* engine,
+        const EVP_MD** evp_md,
+        const int** nids,
+        int nid);
+
+/**
+ * Frees all of the created digests.
+ */
+void sa_free_engine_digests();
+
+/**
+ * Returns a pkey method for the SecApi3 Engine as requested by nid. If the method parameter is NULL, returns the list
+ * of nids supported by this engine.
+ *
+ * @param[in] engine the engine instance.
+ * @param[out] method the pkey method referenced by the nid.
+ * @param[out] nids the list of nids supported by this engine if method is NULL.
+ * @param[in] nid the nid for which to return the pkey method.
+ * @return 1 if successful and 0 if not.
+ */
+int sa_get_engine_pkey_methods(
+        ENGINE* engine,
+        EVP_PKEY_METHOD** method,
+        const int** nids,
+        int nid);
 
 #ifdef __cplusplus
 }

@@ -19,9 +19,17 @@
 #include "sa_engine_common.h"
 #include <openssl/evp.h>
 
-bool SaEngineTest::verifyEncrypt(std::vector<uint8_t>& encrypted, std::vector<uint8_t>& clear,
-        std::vector<uint8_t>& clear_key, std::vector<uint8_t>& iv, std::vector<uint8_t>& aad, std::vector<uint8_t>& tag,
-        const EVP_CIPHER* cipher, int padded) {
+using namespace client_test_helpers;
+
+bool SaEngineTest::verifyEncrypt(
+        std::vector<uint8_t>& encrypted,
+        std::vector<uint8_t>& clear,
+        std::vector<uint8_t>& clear_key,
+        std::vector<uint8_t>& iv,
+        std::vector<uint8_t>& aad,
+        std::vector<uint8_t>& tag,
+        const EVP_CIPHER* cipher,
+        int padded) {
     std::shared_ptr<EVP_CIPHER_CTX> cipher_ctx(EVP_CIPHER_CTX_new(), EVP_CIPHER_CTX_free);
 
     if (EVP_DecryptInit(cipher_ctx.get(), cipher, clear_key.data(), iv.data()) != 1) {
@@ -39,7 +47,7 @@ bool SaEngineTest::verifyEncrypt(std::vector<uint8_t>& encrypted, std::vector<ui
     int total_length = 0;
     if (!aad.empty()) {
         if (EVP_DecryptUpdate(cipher_ctx.get(), nullptr, &length, aad.data(), static_cast<int>(aad.size())) != 1) {
-            fprintf(stderr, "EVP_EncryptUpdate failed");
+            fprintf(stderr, "EVP_DecryptUpdate failed");
             return false;
         }
     }
@@ -60,7 +68,7 @@ bool SaEngineTest::verifyEncrypt(std::vector<uint8_t>& encrypted, std::vector<ui
     }
 
     if (EVP_DecryptFinal(cipher_ctx.get(), decrypted.data() + total_length, &length) != 1) {
-        fprintf(stderr, "EVP_DecryptUpdate failed");
+        fprintf(stderr, "EVP_DecryptFinal failed");
         return false;
     }
 
@@ -69,9 +77,15 @@ bool SaEngineTest::verifyEncrypt(std::vector<uint8_t>& encrypted, std::vector<ui
     return clear == decrypted;
 }
 
-bool SaEngineTest::doEncrypt(std::vector<uint8_t>& encrypted, std::vector<uint8_t>& clear,
-        std::vector<uint8_t>& clear_key, std::vector<uint8_t>& iv, std::vector<uint8_t>& aad, std::vector<uint8_t>& tag,
-        const EVP_CIPHER* cipher, int padded) {
+bool SaEngineTest::doEncrypt(
+        std::vector<uint8_t>& encrypted,
+        std::vector<uint8_t>& clear,
+        std::vector<uint8_t>& clear_key,
+        std::vector<uint8_t>& iv,
+        std::vector<uint8_t>& aad,
+        std::vector<uint8_t>& tag,
+        const EVP_CIPHER* cipher,
+        int padded) {
     encrypted.resize(clear.size() + 16);
     std::shared_ptr<EVP_CIPHER_CTX> cipher_ctx(EVP_CIPHER_CTX_new(), EVP_CIPHER_CTX_free);
 
@@ -110,7 +124,7 @@ bool SaEngineTest::doEncrypt(std::vector<uint8_t>& encrypted, std::vector<uint8_
     if (!tag.empty()) {
         if (EVP_CIPHER_CTX_ctrl(cipher_ctx.get(), EVP_CTRL_GCM_GET_TAG, static_cast<int>(tag.size()),
                     tag.data()) != 1) {
-            fprintf(stderr, "EVP_EncryptFinal failed");
+            fprintf(stderr, "EVP_CIPHER_CTX_ctrl failed");
             return false;
         }
     }

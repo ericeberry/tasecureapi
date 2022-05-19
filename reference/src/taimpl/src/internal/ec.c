@@ -31,7 +31,6 @@
 
 #define EC_KEY_SIZE(ec_group) (EC_GROUP_get_degree(ec_group) / 8 + (EC_GROUP_get_degree(ec_group) % 8 == 0 ? 0 : 1))
 #define MAX_EC_SIGNATURE 256
-#define UNCOMPRESSED_POINT 4
 
 static inline bool is_pcurve(sa_elliptic_curve curve) {
     return curve == SA_ELLIPTIC_CURVE_NIST_P256 || curve == SA_ELLIPTIC_CURVE_NIST_P384 ||
@@ -118,7 +117,7 @@ static size_t export_point(
         return 0;
     }
 
-    if (buffer[0] != UNCOMPRESSED_POINT) {
+    if (buffer[0] != POINT_CONVERSION_UNCOMPRESSED) {
         ERROR("EC_POINT_point2oct failed");
         return 0;
     }
@@ -567,7 +566,7 @@ sa_status ec_get_public(
 
             // The result will always start with a 4 to signify the following bytes are encoded as an uncompressed
             // point.
-            if (written != required_length || public_bytes[0] != UNCOMPRESSED_POINT) {
+            if (written != required_length || public_bytes[0] != POINT_CONVERSION_UNCOMPRESSED) {
                 ERROR("i2d_PublicKey failed");
                 break;
             }
@@ -717,7 +716,7 @@ sa_status ec_decrypt_elgamal(
 
         // 4 indicates the buffer is encoded as an uncompressed point.
         uint8_t in_buffer[point_length + 1];
-        in_buffer[0] = UNCOMPRESSED_POINT;
+        in_buffer[0] = POINT_CONVERSION_UNCOMPRESSED;
         memcpy(in_buffer + 1, in, point_length);
         if (EC_POINT_oct2point(ec_group, c1, in_buffer, point_length + 1, NULL) != 1) {
             ERROR("EC_POINT_oct2point failed");
@@ -872,7 +871,7 @@ sa_status ec_compute_ecdh_shared_secret(
         if (is_pcurve(header->param)) {
             uint8_t other_public_bytes[other_public_length + 1];
             memcpy(other_public_bytes + 1, other_public, other_public_length);
-            other_public_bytes[0] = UNCOMPRESSED_POINT;
+            other_public_bytes[0] = POINT_CONVERSION_UNCOMPRESSED;
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
             evp_pkey_ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
             if (evp_pkey_ctx == NULL) {
@@ -1199,7 +1198,9 @@ sa_status ec_sign_eddsa(
         const stored_key_t* stored_key,
         const void* in,
         size_t in_length) {
-
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+    return SA_STATUS_OPERATION_NOT_SUPPORTED;
+#else
     if (stored_key == NULL) {
         ERROR("NULL stored_key");
         return SA_STATUS_NULL_PARAMETER;
@@ -1213,8 +1214,6 @@ sa_status ec_sign_eddsa(
     sa_status status = SA_STATUS_INTERNAL_ERROR;
     EVP_PKEY* evp_pkey = NULL;
     EVP_MD_CTX* evp_md_ctx = NULL;
-    uint8_t local_signature[MAX_EC_SIGNATURE];
-    size_t local_signature_length = sizeof(local_signature);
     ECDSA_SIG* ecdsa_signature = NULL;
     do {
         const void* key = stored_key_get_key(stored_key);
@@ -1272,25 +1271,11 @@ sa_status ec_sign_eddsa(
             break;
         }
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-        if (EVP_DigestSignUpdate(evp_md_ctx, in, in_length) != 1) {
-            ERROR("EVP_DigestSignUpdate failed");
-            break;
-        }
-
-        if (EVP_DigestSignFinal(evp_md_ctx, local_signature, &local_signature_length) != 1) {
-            ERROR("EVP_DigestSignFinal failed");
-            break;
-        }
-#else
-        if (EVP_DigestSign(evp_md_ctx, local_signature, &local_signature_length, in, in_length) != 1) {
+        if (EVP_DigestSign(evp_md_ctx, signature, signature_length, in, in_length) != 1) {
             ERROR("EVP_DigestSign failed");
             break;
         }
-#endif
 
-        memcpy(signature, local_signature, local_signature_length);
-        *signature_length = local_signature_length;
         status = SA_STATUS_OK;
     } while (false);
 
@@ -1299,6 +1284,7 @@ sa_status ec_sign_eddsa(
     EVP_MD_CTX_destroy(evp_md_ctx);
 
     return status;
+#endif
 }
 
 sa_status ec_generate_key(

@@ -32,7 +32,7 @@ TEST_P(SaEngineCipherTest, encryptTest) {
 
     const EVP_CIPHER* cipher = EVP_get_cipherbynid(nid);
 
-    std::shared_ptr<ENGINE> engine(sa_engine_new(), sa_engine_free);
+    std::shared_ptr<ENGINE> engine(sa_get_engine(), ENGINE_free);
     ASSERT_NE(engine, nullptr);
 
 #if OPENSSL_VERSION_NUMBER >= 0x10100000
@@ -84,7 +84,7 @@ TEST_P(SaEngineCipherTest, decryptTest) {
 
     const EVP_CIPHER* cipher = EVP_get_cipherbynid(nid);
 
-    std::shared_ptr<ENGINE> engine(sa_engine_new(), sa_engine_free);
+    std::shared_ptr<ENGINE> engine(sa_get_engine(), ENGINE_free);
     ASSERT_NE(engine, nullptr);
 
 #if OPENSSL_VERSION_NUMBER >= 0x10100000
@@ -136,7 +136,7 @@ TEST_F(SaEngineCipherTest, initSeparateParams) {
 
     const EVP_CIPHER* cipher = EVP_get_cipherbynid(nid);
 
-    std::shared_ptr<ENGINE> engine(sa_engine_new(), sa_engine_free);
+    std::shared_ptr<ENGINE> engine(sa_get_engine(), ENGINE_free);
     ASSERT_NE(engine, nullptr);
 
     auto clear_key = random(key_length);
@@ -173,7 +173,7 @@ TEST_F(SaEngineCipherTest, initSeparateParams) {
 }
 
 INSTANTIATE_TEST_SUITE_P(
-        SecApi3EngineCipherTests,
+        SaEngineCipherTestTests,
         SaEngineCipherTest,
         ::testing::Values(
 #if OPENSSL_VERSION_NUMBER >= 0x10100000

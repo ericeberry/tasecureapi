@@ -21,7 +21,6 @@
 
 #include "sa.h"
 #include "sa_common.h"
-#include "sa_engine_internal.h"
 #include "sa_log.h"
 #include <ctime>
 #include <memory>
@@ -293,6 +292,21 @@ namespace client_test_helpers {
             std::tuple<std::vector<uint8_t>, std::vector<uint8_t>>& dh_parameters);
 
     /**
+     * Creates an sa_key.
+     *
+     * @param[in] key_type the type of the key to create.
+     * @param[in] key_length the curve for EC keys or the key length for all others.
+     * @param[out] clear_key the clear_key. (NULL for DH).
+     * @param[out] curve the ec curve.
+     * @return the created key or nullptr if not created.
+     */
+    std::shared_ptr<sa_key> create_sa_key(
+            sa_key_type key_type,
+            size_t& key_length,
+            std::vector<uint8_t>& clear_key,
+            sa_elliptic_curve& curve);
+
+    /**
      * Obtain a key header.
      *
      * @param[in] key key to extract header from.
@@ -353,14 +367,6 @@ namespace client_test_helpers {
     bool rsa_get_public(
             std::vector<uint8_t>& out,
             std::shared_ptr<EVP_PKEY>& evp_pkey);
-
-    /**
-     * Import a RSA Public key into OpenSSL EVP_PKEY key.
-     *
-     * @param[in] in PKCS #1 public key data.
-     * @return imported key.
-     */
-    std::shared_ptr<EVP_PKEY> rsa_import_public(const std::vector<uint8_t>& in);
 
     /**
      * Verify RSA PSS signature.
@@ -455,17 +461,6 @@ namespace client_test_helpers {
             std::shared_ptr<EVP_PKEY>& evp_pkey);
 
     /**
-     * Import a EC public key into OpenSSL EC_KEY key.
-     *
-     * @param[in] curve Elliptic curve to use.
-     * @param[in] in public data.
-     * @return imported public key point.
-     */
-    std::shared_ptr<EC_POINT> ec_import_public(
-            sa_elliptic_curve curve,
-            const std::vector<uint8_t>& in);
-
-    /**
      * Verify an ECDSA signature.
      *
      * @param[in] evp_pkey EC key.
@@ -502,16 +497,16 @@ namespace client_test_helpers {
      * valid point. These should be set to 0.
      *
      * @param[out] out output buffer.
-     * @param[in] in
-     * @param[in] curve
-     * @param[in] ec_point
+     * @param[in] in the input data to encrypt.
+     * @param[in] curve the ellipic curve algorithm.
+     * @param[in] public_key the ec public key.
      * @return status of the operation.
      */
     bool encrypt_ec_elgamal_openssl(
             std::vector<uint8_t>& out,
             std::vector<uint8_t>& in,
             sa_elliptic_curve curve,
-            const std::shared_ptr<const EC_POINT>& ec_point);
+            const std::shared_ptr<EVP_PKEY>& public_key);
 
     /**
      * Encrypt data using AES CBC mode using OpenSSL.
@@ -777,21 +772,6 @@ namespace client_test_helpers {
             std::vector<uint8_t>& out,
             const std::vector<uint8_t>& key,
             const std::vector<uint8_t>& in);
-
-    /**
-     * Return the key size based on the curve.
-     *
-     * @param[in] curve Elliptic curve to use.
-     * @return imported key.
-     */
-    size_t ec_get_key_size(sa_elliptic_curve curve);
-
-    /**
-     * Retrieves the openssl ec group from the curve.
-     * @param curve the curve to convert to an EC Group.
-     * @return the EC_GROUP.
-     */
-    std::shared_ptr<EC_GROUP> ec_group_from_curve(sa_elliptic_curve curve);
 
     /**
      * Exports an EC_POINT into a byte array.

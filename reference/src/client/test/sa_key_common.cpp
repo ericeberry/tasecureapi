@@ -16,6 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include "sa_common.h"
 #include <cstring>
 #include <openssl/cmac.h>
 #include <openssl/ec.h>
@@ -39,114 +40,6 @@ using namespace client_test_helpers;
 const std::vector<uint8_t> SaKeyBase::TEST_KEY = {
         0xe7, 0x9b, 0x03, 0x18, 0x85, 0x1b, 0x9d, 0xbd,
         0xd7, 0x17, 0x18, 0xf9, 0xec, 0x72, 0xf0, 0x3d};
-
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
-static int ec_get_type(sa_elliptic_curve curve) {
-    switch (curve) {
-        case SA_ELLIPTIC_CURVE_NIST_P256:
-            return NID_X9_62_prime256v1;
-
-        case SA_ELLIPTIC_CURVE_NIST_P384:
-            return NID_secp384r1;
-
-        case SA_ELLIPTIC_CURVE_NIST_P521:
-            return NID_secp521r1;
-
-        case SA_ELLIPTIC_CURVE_ED25519:
-            return NID_ED25519;
-
-        case SA_ELLIPTIC_CURVE_X25519:
-            return NID_X25519;
-
-        case SA_ELLIPTIC_CURVE_ED448:
-            return NID_ED448;
-
-        case SA_ELLIPTIC_CURVE_X448:
-            return NID_X448;
-
-        default:
-            ERROR("Unknown EC curve encountered");
-            return 0;
-    }
-}
-#endif
-
-static inline bool is_pcurve(sa_elliptic_curve curve) {
-    return curve == SA_ELLIPTIC_CURVE_NIST_P256 || curve == SA_ELLIPTIC_CURVE_NIST_P384 ||
-           curve == SA_ELLIPTIC_CURVE_NIST_P521;
-}
-
-std::shared_ptr<EC_POINT> SaKeyBase::ec_point_import_xy(
-        sa_elliptic_curve curve,
-        std::vector<uint8_t> in) {
-
-    auto key_size = ec_get_key_size(curve);
-    if (key_size == 0) {
-        ERROR("Bad curve");
-        return nullptr;
-    }
-
-    if (in.size() != key_size * 2) {
-        ERROR("Bad in_length");
-        return nullptr;
-    }
-
-    bool status = false;
-    std::shared_ptr<EC_GROUP> group;
-    BIGNUM* x = nullptr;
-    BIGNUM* y = nullptr;
-    EC_POINT* ec_point = nullptr;
-
-    do {
-        group = ec_group_from_curve(curve);
-        if (group == nullptr) {
-            ERROR("EC_GROUP_new_by_curve_name failed");
-            break;
-        }
-
-        x = BN_bin2bn(in.data(), static_cast<int>(key_size), nullptr);
-        if (x == nullptr) {
-            ERROR("BN_bin2bn failed");
-            break;
-        }
-
-        y = BN_bin2bn(in.data() + key_size, static_cast<int>(key_size), nullptr);
-        if (y == nullptr) {
-            ERROR("BN_bin2bn failed");
-            break;
-        }
-
-        ec_point = EC_POINT_new(group.get());
-        if (ec_point == nullptr) {
-            ERROR("EC_POINT_new failed");
-            break;
-        }
-
-#if OPENSSL_VERSION_NUMBER >= 0x10100000
-        if (EC_POINT_set_affine_coordinates(group.get(), ec_point, x, y, nullptr) == 0) {
-            ERROR("EC_POINT_set_affine_coordinates failed");
-            break;
-        }
-#else
-        if (EC_POINT_set_affine_coordinates_GFp(group.get(), ec_point, x, y, nullptr) == 0) {
-            ERROR("EC_POINT_set_affine_coordinates_GFp failed");
-            break;
-        }
-#endif
-
-        status = true;
-    } while (false);
-
-    BN_free(x);
-    BN_free(y);
-
-    if (!status) {
-        EC_POINT_free(ec_point);
-        ec_point = nullptr;
-    }
-
-    return {ec_point, EC_POINT_free};
-}
 
 #if OPENSSL_VERSION_NUMBER >= 0x30000000
 bool SaKeyBase::dh_generate(
@@ -486,7 +379,7 @@ sa_status SaKeyBase::ec_generate_key(
             return SA_STATUS_INTERNAL_ERROR;
         }
 
-        auto group = ec_group_from_curve(curve);
+        auto group = std::shared_ptr<EC_GROUP>(EC_GROUP_new_by_curve_name(ec_get_type(curve)), EC_GROUP_free);
         if (group == nullptr) {
             ERROR("ec_group_from_curve failed");
             return SA_STATUS_INTERNAL_ERROR;
@@ -579,7 +472,7 @@ sa_status SaKeyBase::ec_generate_key(
 
         // The result will always start with a 4 to signify the following bytes are encoded as an uncompressed
         // point.
-        if (written != public_key_size || public_key[0] != 4) {
+        if (written != public_key_size || public_key[0] != POINT_CONVERSION_UNCOMPRESSED) {
             ERROR("i2d_PublicKey failed");
             return SA_STATUS_INTERNAL_ERROR;
         }
@@ -653,7 +546,7 @@ bool SaKeyBase::ecdh_compute_secret(
 
         other_evp_pkey = {temp, EVP_PKEY_free};
 #else
-        auto ec_group = ec_group_from_curve(curve);
+        auto ec_group = std::shared_ptr<EC_GROUP>(EC_GROUP_new_by_curve_name(ec_get_type(curve)), EC_GROUP_free);
         auto other_public_point = std::shared_ptr<EC_POINT>(EC_POINT_new(ec_group.get()), EC_POINT_free);
         if (other_public_point == nullptr) {
             ERROR("EC_POINT_new failed");
