@@ -128,6 +128,18 @@ static bool set_pkey_key_data(
             *evp_pkey = EVP_PKEY_new();
             break;
 
+        case EVP_PKEY_DH:
+            temp_key = EVP_PKEY_get1_DH(*evp_pkey);
+            if (temp_key == NULL) {
+                ERROR("EVP_PKEY_get1_RSA failed");
+                break;
+            }
+
+            // Free the DH evp_pkey to decrement the DH reference count and create a new one to use.
+            EVP_PKEY_free(*evp_pkey);
+            *evp_pkey = EVP_PKEY_new();
+            break;
+
 #if OPENSSL_VERSION_NUMBER >= 0x10100000
         case EVP_PKEY_ED25519:
         case EVP_PKEY_ED448:
@@ -162,7 +174,7 @@ static bool set_pkey_key_data(
 
             // Free the original data structure (unless it's an ED or X key), but don't free any of it's contents which
             // are now pointed to by the key_data.
-            if (type == EVP_PKEY_RSA || type == EVP_PKEY_EC)
+            if (type == EVP_PKEY_RSA || type == EVP_PKEY_EC || type == EVP_PKEY_DH)
                 OPENSSL_free(temp_key);
 
             key_data->type = EVP_PKEY_SECAPI3;
@@ -368,7 +380,6 @@ static int pkey_copy(
     new_app_data->pss_salt_length = app_data->pss_salt_length;
     new_app_data->evp_md_ctx = app_data->evp_md_ctx;
     new_app_data->evp_md = app_data->evp_md;
-
     EVP_PKEY_CTX_set_app_data(dst_evp_pkey_ctx, new_app_data);
     return 1;
 }
@@ -488,7 +499,7 @@ static int pkey_sign(
             break;
 
         case SA_KEY_TYPE_EC:
-            if (!is_pcurve(header.param)) {
+            if (!is_pcurve(header.type_parameters.curve)) {
                 ERROR("Invalid EC curve");
                 return 0;
             }
@@ -679,7 +690,8 @@ static int pkey_digestsign(
     }
 
     if (header.type != SA_KEY_TYPE_EC &&
-            !(header.param == SA_ELLIPTIC_CURVE_ED25519 || header.param == SA_ELLIPTIC_CURVE_ED448)) {
+            !(header.type_parameters.curve == SA_ELLIPTIC_CURVE_ED25519 ||
+                    header.type_parameters.curve == SA_ELLIPTIC_CURVE_ED448)) {
         ERROR("Invalid key type");
         return 0;
     }
@@ -862,7 +874,7 @@ static int pkey_encrypt(
 
 static int pkey_decrypt(
         EVP_PKEY_CTX* evp_pkey_ctx,
-        unsigned char* out,
+        unsigned char* out, // NOLINT
         size_t* out_length,
         const unsigned char* in,
         size_t in_length) {
@@ -902,10 +914,10 @@ static int pkey_decrypt(
     }
 
     sa_cipher_algorithm cipher_algorithm;
-    if (app_data->padding_mode == RSA_PKCS1_PADDING)
-        cipher_algorithm = SA_CIPHER_ALGORITHM_RSA_PKCS1V15;
-    else if (app_data->padding_mode == RSA_PKCS1_OAEP_PADDING)
+    if (app_data->padding_mode == RSA_PKCS1_OAEP_PADDING)
         cipher_algorithm = SA_CIPHER_ALGORITHM_RSA_OAEP;
+    else
+        cipher_algorithm = SA_CIPHER_ALGORITHM_RSA_PKCS1V15;
 
     sa_crypto_cipher_context cipher_context;
     sa_status status = sa_crypto_cipher_init(&cipher_context, cipher_algorithm, SA_CIPHER_MODE_DECRYPT, key, NULL);
@@ -925,6 +937,154 @@ static int pkey_decrypt(
 
     *out_length = bytes_to_process;
     return 1;
+}
+
+static int pkey_pderive_init(EVP_PKEY_CTX* evp_pkey_ctx) {
+    EVP_PKEY* evp_pkey = EVP_PKEY_CTX_get0_pkey(evp_pkey_ctx);
+    if (evp_pkey == NULL) {
+        ERROR("NULL evp_pkey");
+        return 0;
+    }
+
+    int type = EVP_PKEY_base_id(evp_pkey);
+    if (type != EVP_PKEY_DH && type != EVP_PKEY_EC
+#if OPENSSL_VERSION_NUMBER >= 0x10100000
+            && type != EVP_PKEY_X25519 && type != EVP_PKEY_X448
+#endif
+    ) {
+        ERROR("Invalid key type for encrypt or decrypt");
+        return 0;
+    }
+
+    return 1;
+}
+
+static int pkey_pderive(
+        EVP_PKEY_CTX* evp_pkey_ctx,
+        unsigned char* shared_secret_key,
+        size_t* shared_secret_key_length) {
+
+    if (evp_pkey_ctx == NULL) {
+        ERROR("NULL evp_pkey_ctx");
+        return 0;
+    }
+
+    *shared_secret_key_length = sizeof(sa_key);
+    if (shared_secret_key == NULL)
+        return 1;
+
+    if (shared_secret_key_length == NULL) {
+        ERROR("NULL shared_secret_key_length");
+        return 0;
+    }
+
+    pkey_app_data* app_data = EVP_PKEY_CTX_get_app_data(evp_pkey_ctx);
+    if (app_data == NULL) {
+        ERROR("NULL app_data");
+        return 0;
+    }
+
+    EVP_PKEY* peer_key = EVP_PKEY_CTX_get0_peerkey(evp_pkey_ctx);
+    if (peer_key == NULL) {
+        ERROR("EVP_PKEY_CTX_get0_peerkey EVP_PKEY_CTX_get0_peerkey failed");
+        return 0;
+    }
+
+    EVP_PKEY* evp_pkey = EVP_PKEY_CTX_get0_pkey(evp_pkey_ctx);
+    if (evp_pkey == NULL) {
+        ERROR("NULL evp_pkey");
+        return 0;
+    }
+
+    sa_key key = get_pkey_key_data(evp_pkey);
+    int type = EVP_PKEY_base_id(evp_pkey);
+    int other_public_type = EVP_PKEY_base_id(peer_key);
+    if (other_public_type != type) {
+        ERROR("Invalid peer key type");
+        return 0;
+    }
+
+    int result = 0;
+    sa_key_exchange_algorithm key_exchange_algorithm;
+    uint8_t* other_public = NULL;
+    size_t other_public_length;
+    do {
+        if (type == EVP_PKEY_DH) {
+            key_exchange_algorithm = SA_KEY_EXCHANGE_ALGORITHM_DH;
+#if OPENSSL_VERSION_NUMBER >= 0x10100000
+            const DH* dh = EVP_PKEY_get0_DH(peer_key);
+            if (dh == NULL) {
+                ERROR("NULL dh");
+                break;
+            }
+
+            const BIGNUM* pub_bn = DH_get0_pub_key(dh);
+            if (pub_bn == NULL) {
+                ERROR("NULL pub_bn");
+                break;
+            }
+#else
+            const DH* dh = peer_key->pkey.dh;
+            const BIGNUM* pub_bn = dh->pub_key;
+#endif
+            other_public_length = BN_num_bytes(pub_bn);
+            other_public = OPENSSL_malloc(other_public_length);
+            if (other_public == NULL) {
+                ERROR("OPENSSL_malloc failed");
+                break;
+            }
+
+            if (BN_bn2bin(pub_bn, other_public) != (int) other_public_length) {
+                ERROR("BN_bn2bin failed");
+                break;
+            }
+        } else if (type == EVP_PKEY_EC) {
+            key_exchange_algorithm = SA_KEY_EXCHANGE_ALGORITHM_ECDH;
+            other_public_length = i2d_PublicKey(peer_key, &other_public);
+            if (other_public_length == 0) {
+                ERROR("EC_KEY_key2buf failed");
+                break;
+            }
+
+            memmove(other_public, other_public + 1, --other_public_length);
+#if OPENSSL_VERSION_NUMBER >= 0x10100000
+        } else if (type == EVP_PKEY_X25519 || type == EVP_PKEY_X448) {
+            key_exchange_algorithm = SA_KEY_EXCHANGE_ALGORITHM_ECDH;
+            if (EVP_PKEY_get_raw_public_key(peer_key, NULL, &other_public_length) != 1) {
+                ERROR("EVP_PKEY_get_raw_public_key failed");
+                break;
+            }
+
+            other_public = OPENSSL_malloc(other_public_length);
+            if (other_public == NULL) {
+                ERROR("OPENSSL_malloc failed");
+                break;
+            }
+
+            if (EVP_PKEY_get_raw_public_key(peer_key, other_public, &other_public_length) != 1) {
+                ERROR("EVP_PKEY_get_raw_public_key failed");
+                break;
+            }
+#endif
+        } else {
+            ERROR("Invalid key type");
+            break;
+        }
+
+        sa_rights rights;
+        rights_set_allow_all(&rights);
+        sa_status status = sa_key_exchange((void*) shared_secret_key, &rights, key_exchange_algorithm, key,
+                other_public, other_public_length, NULL);
+        if (status != SA_STATUS_OK) {
+            ERROR("sa_key_exchange failed");
+            break;
+        }
+
+        result = 1;
+    } while (false);
+
+    OPENSSL_free(other_public);
+    return result;
 }
 
 static int pkey_ctrl(
@@ -1009,6 +1169,50 @@ static int pkey_ctrl(
 
             break;
         }
+
+        case EVP_PKEY_CTRL_PEER_KEY: {
+            EVP_PKEY* evp_pkey = EVP_PKEY_CTX_get0_pkey(evp_pkey_ctx);
+            if (evp_pkey == NULL) {
+                ERROR("EVP_PKEY_CTX_get0_pkey failed");
+                return 0;
+            }
+
+            int key_type = EVP_PKEY_base_id(evp_pkey);
+            if (key_type != EVP_PKEY_DH && key_type != EVP_PKEY_EC
+#if OPENSSL_VERSION_NUMBER >= 0x10100000
+                    && key_type != EVP_PKEY_X25519 &&
+                    key_type != EVP_PKEY_X448
+#endif
+            ) {
+                ERROR("Invalid key_type for PKCS7");
+                return 0;
+            }
+
+            break;
+        }
+#if OPENSSL_VERSION_NUMBER >= 0x10100000
+        case EVP_PKEY_CTRL_DH_PAD: {
+            EVP_PKEY* evp_pkey = EVP_PKEY_CTX_get0_pkey(evp_pkey_ctx);
+            if (evp_pkey == NULL) {
+                ERROR("EVP_PKEY_CTX_get0_pkey failed");
+                return 0;
+            }
+
+            int key_type = EVP_PKEY_base_id(evp_pkey);
+            if (key_type != EVP_PKEY_DH) {
+                ERROR("Invalid key_type for PKCS7");
+                return 0;
+            }
+
+            // We only support DH padding.
+            if (p1 == 0) {
+                ERROR("Unsupported DH padding");
+                return 0;
+            }
+
+            break;
+        }
+#endif
         default:
             return -2;
     }
@@ -1016,74 +1220,12 @@ static int pkey_ctrl(
     return 1;
 }
 
-static int pkey_ctrl_str(
-        EVP_PKEY_CTX* evp_pkey_ctx,
-        const char* type,
-        const char* value) {
-
-    if (evp_pkey_ctx == NULL) {
-        ERROR("NULL evp_pkey_ctx");
-        return 0;
-    }
-
-    if (type == NULL) {
-        ERROR("NULL type");
-        return 0;
-    }
-
-    if (value == NULL) {
-        ERROR("NULL value");
-        return 0;
-    }
-
-    if (strcmp(type, "rsa_padding_mode") == 0) {
-        int pm;
-        if (strcmp(value, "pkcs1") == 0)
-            pm = RSA_PKCS1_PADDING;
-        else if (strcmp(value, "oaep") == 0)
-            pm = RSA_PKCS1_OAEP_PADDING;
-        else if (strcmp(value, "pss") == 0)
-            pm = RSA_PKCS1_PSS_PADDING;
-        else {
-            ERROR("Invalid padding mode");
-            return -2;
-        }
-
-        return EVP_PKEY_CTX_set_rsa_padding(evp_pkey_ctx, pm);
-    }
-
-    if (strcmp(type, "rsa_pss_saltlen") == 0) {
-        int saltlen;
-
-        if (!strcmp(value, "digest"))
-            saltlen = RSA_PSS_SALTLEN_DIGEST;
-        else if (!strcmp(value, "max"))
-            saltlen = RSA_PSS_SALTLEN_MAX;
-        else if (!strcmp(value, "auto"))
-            saltlen = RSA_PSS_SALTLEN_AUTO;
-        else
-            saltlen = atoi(value);
-
-        return EVP_PKEY_CTX_set_rsa_pss_saltlen(evp_pkey_ctx, saltlen);
-    }
-
-    if (strcmp(type, "rsa_oaep_md") == 0)
-        return EVP_PKEY_CTX_md(evp_pkey_ctx, EVP_PKEY_OP_TYPE_CRYPT,
-                EVP_PKEY_CTRL_RSA_OAEP_MD, value);
-
-    return -2;
+#if OPENSSL_VERSION_NUMBER >= 0x10100000
+int pkey_check(EVP_PKEY* pkey) {
+    // Just pass the check.
+    return 1;
 }
-
-static int pkey_pderive_init(EVP_PKEY_CTX* ctx) {
-    return 0;
-}
-
-static int pkey_pderive(
-        EVP_PKEY_CTX* ctx,
-        unsigned char* key,
-        size_t* keylen) {
-    return 0;
-}
+#endif
 
 static EVP_PKEY_METHOD* get_pkey_method(
         int nid,
@@ -1094,7 +1236,11 @@ static EVP_PKEY_METHOD* get_pkey_method(
         EVP_PKEY_meth_set_init(evp_pkey_method, pkey_init);
         EVP_PKEY_meth_set_copy(evp_pkey_method, pkey_copy);
         EVP_PKEY_meth_set_cleanup(evp_pkey_method, pkey_cleanup);
-        EVP_PKEY_meth_set_ctrl(evp_pkey_method, pkey_ctrl, pkey_ctrl_str);
+        EVP_PKEY_meth_set_ctrl(evp_pkey_method, pkey_ctrl, NULL);
+#if OPENSSL_VERSION_NUMBER >= 0x10100000
+        EVP_PKEY_meth_set_check(evp_pkey_method, pkey_check);
+        EVP_PKEY_meth_set_public_check(evp_pkey_method, pkey_check);
+#endif
     }
 
     return evp_pkey_method;
@@ -1107,6 +1253,11 @@ EVP_PKEY* sa_key_to_EVP_PKEY(sa_key key) {
     get_ex_data_index();
 #endif
     EVP_PKEY* evp_pkey = get_public_key(key);
+    if (evp_pkey == NULL) {
+        ERROR("get_public_key failed");
+        return NULL;
+    }
+
     if (!set_pkey_key_data(&evp_pkey, key)) {
         ERROR("set_pkey_key_data failed");
         EVP_PKEY_free(evp_pkey);

@@ -38,11 +38,14 @@ namespace {
         if (*key == UNSUPPORTED_KEY)
             GTEST_SKIP() << "key type not supported";
 
+        sa_type_parameters type_parameters;
+        memset(&type_parameters, 0, sizeof(sa_type_parameters));
+        type_parameters.curve = curve;
         auto header = key_header(*key);
         ASSERT_NE(header, nullptr);
         ASSERT_TRUE(memcmp(&rights, &header->rights, sizeof(sa_rights)) == 0);
         ASSERT_EQ(key_length, header->size);
-        ASSERT_EQ(curve, header->param);
+        ASSERT_EQ(memcmp(&type_parameters, &header->type_parameters, sizeof(sa_type_parameters)), 0);
         ASSERT_EQ(key_type, header->type);
 
         ASSERT_TRUE(key_check(key_type, *key, clear_key));

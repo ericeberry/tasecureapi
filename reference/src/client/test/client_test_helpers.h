@@ -215,13 +215,6 @@ namespace client_test_helpers {
     std::string iso8601(uint64_t instant);
 
     /**
-     * Set key rights to allow all operations.
-     *
-     * @param[out] rights key rights
-     */
-    void rights_set_allow_all(sa_rights* rights);
-
-    /**
      * Creates a shared pointer holding the sa_key value. Key will be released using
      * sa_key_release when the shared pointer gets destroyed.
      *
@@ -806,22 +799,6 @@ namespace client_test_helpers {
     std::shared_ptr<sa_buffer> buffer_alloc(
             sa_buffer_type buffer_type,
             std::vector<uint8_t>& initial_value);
-
-    /**
-     * Create a log entry.
-     *
-     * @param[in] file source file.
-     * @param[in] line source line number.
-     * @param[in] function function name.
-     * @param[in] format format string.
-     * @param[in] ... data.
-     */
-    void log_entry(
-            const char* file,
-            int line,
-            const char* function,
-            const char* format,
-            ...);
 
 } // namespace client_test_helpers
 

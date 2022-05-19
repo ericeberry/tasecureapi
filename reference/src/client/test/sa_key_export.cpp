@@ -54,11 +54,26 @@ namespace {
         status = sa_key_import(reimported_key.get(), SA_KEY_FORMAT_EXPORTED, exported_key.data(), exported_key.size(),
                 nullptr);
         ASSERT_EQ(status, SA_STATUS_OK);
+
+        sa_type_parameters type_parameters;
+        memset(&type_parameters, 0, sizeof(sa_type_parameters));
+        if (key_type == SA_KEY_TYPE_DH) {
+            auto dh_parameters = get_dh_parameters(key_length);
+            memcpy(type_parameters.dh_parameters.p, std::get<0>(dh_parameters).data(),
+                    std::get<0>(dh_parameters).size());
+            type_parameters.dh_parameters.p_length = std::get<0>(dh_parameters).size();
+            memcpy(type_parameters.dh_parameters.g, std::get<1>(dh_parameters).data(),
+                    std::get<1>(dh_parameters).size());
+            type_parameters.dh_parameters.g_length = std::get<1>(dh_parameters).size();
+        } else if (key_type == SA_KEY_TYPE_EC) {
+            type_parameters.curve = curve;
+        }
+
         auto exported_key_header = key_header(*reimported_key);
         ASSERT_NE(nullptr, exported_key_header.get());
         ASSERT_TRUE(memcmp(&rights, &exported_key_header->rights, sizeof(sa_rights)) == 0);
         ASSERT_EQ(key_length, exported_key_header->size);
-        ASSERT_EQ(curve, exported_key_header->param);
+        ASSERT_EQ(memcmp(&type_parameters, &exported_key_header->type_parameters, sizeof(sa_type_parameters)), 0);
         ASSERT_EQ(key_type, exported_key_header->type);
         ASSERT_TRUE(key_check(key_type, *reimported_key, clear_key));
     }
@@ -95,11 +110,26 @@ namespace {
         status = sa_key_import(reimported_key.get(), SA_KEY_FORMAT_EXPORTED, exported_key.data(), exported_key.size(),
                 nullptr);
         ASSERT_EQ(status, SA_STATUS_OK);
+
+        sa_type_parameters type_parameters;
+        memset(&type_parameters, 0, sizeof(sa_type_parameters));
+        if (key_type == SA_KEY_TYPE_DH) {
+            auto dh_parameters = get_dh_parameters(key_length);
+            memcpy(type_parameters.dh_parameters.p, std::get<0>(dh_parameters).data(),
+                    std::get<0>(dh_parameters).size());
+            type_parameters.dh_parameters.p_length = std::get<0>(dh_parameters).size();
+            memcpy(type_parameters.dh_parameters.g, std::get<1>(dh_parameters).data(),
+                    std::get<1>(dh_parameters).size());
+            type_parameters.dh_parameters.g_length = std::get<1>(dh_parameters).size();
+        } else if (key_type == SA_KEY_TYPE_EC) {
+            type_parameters.curve = curve;
+        }
+
         auto exported_key_header = key_header(*reimported_key);
         ASSERT_NE(nullptr, exported_key_header.get());
         ASSERT_TRUE(memcmp(&rights, &exported_key_header->rights, sizeof(sa_rights)) == 0);
         ASSERT_EQ(key_length, exported_key_header->size);
-        ASSERT_EQ(curve, exported_key_header->param);
+        ASSERT_EQ(memcmp(&type_parameters, &exported_key_header->type_parameters, sizeof(sa_type_parameters)), 0);
         ASSERT_EQ(key_type, exported_key_header->type);
         ASSERT_TRUE(key_check(key_type, *reimported_key, clear_key));
     }

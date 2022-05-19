@@ -19,6 +19,7 @@
 #include "client_test_helpers.h"
 #include "sa.h"
 #include "sa_engine.h"
+#include "sa_key_common.h"
 #include <gtest/gtest.h>
 #include <memory>
 #include <openssl/crypto.h>
@@ -76,6 +77,11 @@ class SaEnginePkcs7EdTest : public ::testing::TestWithParam<SaEnginePkcs7TestTyp
 using SaEnginePkeyEncryptTestType = std::tuple<sa_key_type, size_t, int>;
 
 class SaEnginePkeyEncryptTest : public ::testing::TestWithParam<SaEnginePkeyEncryptTestType>,
-                            public SaEngineTest {};
+                                public SaEngineTest {};
+
+using SaEnginePkeyDeriveTestType = std::tuple<sa_key_type, size_t>;
+
+class SaEnginePkeyDeriveTest : public ::testing::TestWithParam<SaEnginePkeyDeriveTestType>,
+                                public SaKeyBase {};
 
 #endif //SA_ENGINE_COMMON_H

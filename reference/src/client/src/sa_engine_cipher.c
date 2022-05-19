@@ -192,7 +192,7 @@ static int cipher_init(
 
 static int cipher_do_cipher(
         EVP_CIPHER_CTX* cipher_ctx,
-        unsigned char* out,
+        unsigned char* out, // NOLINT
         const unsigned char* in,
         size_t inl) {
 

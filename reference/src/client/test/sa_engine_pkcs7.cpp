@@ -48,9 +48,15 @@ TEST_P(SaEnginePkcs7Test, pkcs7Test) {
     ASSERT_EQ(X509_set_pubkey(x509.get(), evp_pkey.get()), 1);
     auto x509_name = std::shared_ptr<X509_NAME>(X509_NAME_new(), X509_NAME_free);
     ASSERT_NE(x509_name, nullptr);
-    ASSERT_EQ(X509_NAME_add_entry_by_txt(x509_name.get(), "C", MBSTRING_ASC, (unsigned char*) "US", -1, -1, 0), 1);
-    ASSERT_EQ(X509_NAME_add_entry_by_txt(x509_name.get(), "O", MBSTRING_ASC, (unsigned char*) "RDKCentral", -1, -1, 0), 1);
-    ASSERT_EQ(X509_NAME_add_entry_by_txt(x509_name.get(), "CN", MBSTRING_ASC, (unsigned char*) "test.rdkcentral.com", -1, -1, 0), 1);
+    int result = X509_NAME_add_entry_by_txt(x509_name.get(), "C", MBSTRING_ASC,
+            (unsigned char*)"US", -1, -1, 0); // NOLINT
+    ASSERT_EQ(result, 1);
+    result = X509_NAME_add_entry_by_txt(x509_name.get(), "O", MBSTRING_ASC,
+            (unsigned char*)"RDKCentral", -1, -1, 0); // NOLINT
+    ASSERT_EQ(result, 1);
+    result = X509_NAME_add_entry_by_txt(x509_name.get(), "CN", MBSTRING_ASC,
+            (unsigned char*)"test.rdkcentral.com", -1, -1, 0); // NOLINT
+    ASSERT_EQ(result, 1);
     ASSERT_EQ(X509_set_subject_name(x509.get(), x509_name.get()), 1);
     ASSERT_EQ(X509_set_issuer_name(x509.get(), x509_name.get()), 1);
     ASSERT_GT(X509_sign(x509.get(), evp_pkey.get(), EVP_sha256()), 1);
@@ -70,7 +76,8 @@ TEST_P(SaEnginePkcs7Test, pkcs7Test) {
     ASSERT_GT(message_length, 0);
 
     const uint8_t* p_pkcs7_message2 = pkcs7_message.data();
-    auto pkcs7_verify = std::shared_ptr<PKCS7>(d2i_PKCS7(nullptr, &p_pkcs7_message2, pkcs7_message.size()), PKCS7_free);
+    PKCS7* temp = d2i_PKCS7(nullptr, &p_pkcs7_message2, static_cast<long>(pkcs7_message.size())); // NOLINT
+    auto pkcs7_verify = std::shared_ptr<PKCS7>(temp, PKCS7_free);
 
     auto out = std::shared_ptr<BIO>(BIO_new(BIO_s_mem()), BIO_free);
     ASSERT_EQ(PKCS7_verify(pkcs7.get(), nullptr, nullptr, nullptr, out.get(), PKCS7_NOVERIFY), 1);

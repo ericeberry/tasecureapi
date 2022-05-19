@@ -530,13 +530,13 @@ sa_status ec_get_public(
             break;
         }
 
-        evp_pkey = ec_import_private(header->param, key, key_length);
+        evp_pkey = ec_import_private(header->type_parameters.curve, key, key_length);
         if (evp_pkey == NULL) {
             ERROR("ec_import_private failed");
             break;
         }
 
-        if (is_pcurve(header->param)) {
+        if (is_pcurve(header->type_parameters.curve)) {
             int required_length = i2d_PublicKey(evp_pkey, NULL);
             if (required_length <= 0) {
                 ERROR("i2d_PublicKey failed");
@@ -624,8 +624,9 @@ sa_status ec_verify_cipher(
         return SA_STATUS_INTERNAL_ERROR;
     }
 
-    if (header->param != SA_ELLIPTIC_CURVE_NIST_P256 && header->param != SA_ELLIPTIC_CURVE_NIST_P384 &&
-            header->param != SA_ELLIPTIC_CURVE_NIST_P521) {
+    if (header->type_parameters.curve != SA_ELLIPTIC_CURVE_NIST_P256 &&
+            header->type_parameters.curve != SA_ELLIPTIC_CURVE_NIST_P384 &&
+            header->type_parameters.curve != SA_ELLIPTIC_CURVE_NIST_P521) {
         ERROR("ED & X curves cannot be used for ECDSA");
         return SA_STATUS_OPERATION_NOT_ALLOWED;
     }
@@ -679,19 +680,20 @@ sa_status ec_decrypt_elgamal(
             break;
         }
 
-        if (header->param != SA_ELLIPTIC_CURVE_NIST_P256 && header->param != SA_ELLIPTIC_CURVE_NIST_P384 &&
-                header->param != SA_ELLIPTIC_CURVE_NIST_P521) {
+        if (header->type_parameters.curve != SA_ELLIPTIC_CURVE_NIST_P256 &&
+                header->type_parameters.curve != SA_ELLIPTIC_CURVE_NIST_P384 &&
+                header->type_parameters.curve != SA_ELLIPTIC_CURVE_NIST_P521) {
             ERROR("ED & X curves cannot be used for El Gamal");
             status = SA_STATUS_OPERATION_NOT_ALLOWED;
         }
 
-        evp_pkey = ec_import_private(header->param, key, key_length);
+        evp_pkey = ec_import_private(header->type_parameters.curve, key, key_length);
         if (evp_pkey == NULL) {
             ERROR("ec_import_private failed");
             break;
         }
 
-        ec_group = ec_group_from_curve(header->param);
+        ec_group = ec_group_from_curve(header->type_parameters.curve);
         if (out == NULL) {
             *out_length = point_length * 2;
             status = SA_STATUS_OK;
@@ -855,20 +857,21 @@ sa_status ec_compute_ecdh_shared_secret(
             break;
         }
 
-        if (header->param == SA_ELLIPTIC_CURVE_ED25519 || header->param == SA_ELLIPTIC_CURVE_ED448) {
+        if (header->type_parameters.curve == SA_ELLIPTIC_CURVE_ED25519 ||
+                header->type_parameters.curve == SA_ELLIPTIC_CURVE_ED448) {
             ERROR("ED curves cannot be used for ECDH");
             status = SA_STATUS_OPERATION_NOT_ALLOWED;
             break;
         }
 
-        evp_pkey = ec_import_private(header->param, key, key_length);
+        evp_pkey = ec_import_private(header->type_parameters.curve, key, key_length);
         if (evp_pkey == NULL) {
             ERROR("ec_import_private failed");
             break;
         }
 
-        ec_group = ec_group_from_curve(header->param);
-        if (is_pcurve(header->param)) {
+        ec_group = ec_group_from_curve(header->type_parameters.curve);
+        if (is_pcurve(header->type_parameters.curve)) {
             uint8_t other_public_bytes[other_public_length + 1];
             memcpy(other_public_bytes + 1, other_public, other_public_length);
             other_public_bytes[0] = POINT_CONVERSION_UNCOMPRESSED;
@@ -884,7 +887,7 @@ sa_status ec_compute_ecdh_shared_secret(
                 break;
             }
 
-            const char* group_name = ec_get_name(header->param);
+            const char* group_name = ec_get_name(header->type_parameters.curve);
             OSSL_PARAM params[] = {
                     OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME, (char*) group_name,
                             strlen(group_name)),
@@ -957,7 +960,7 @@ sa_status ec_compute_ecdh_shared_secret(
                 break;
             }
 
-            int type = ec_get_type(header->param);
+            int type = ec_get_type(header->type_parameters.curve);
             if (type == 0) {
                 ERROR("ec_get_type failed");
                 break;
@@ -1006,8 +1009,10 @@ sa_status ec_compute_ecdh_shared_secret(
             break;
         }
 
-        if (!stored_key_create(stored_key_shared_secret, rights, &header->rights, SA_KEY_TYPE_SYMMETRIC, 0,
-                    shared_secret_length, shared_secret, shared_secret_length)) {
+        sa_type_parameters type_parameters;
+        memory_memset_unoptimizable(&type_parameters, 0, sizeof(sa_type_parameters));
+        if (!stored_key_create(stored_key_shared_secret, rights, &header->rights, SA_KEY_TYPE_SYMMETRIC,
+                    &type_parameters, shared_secret_length, shared_secret, shared_secret_length)) {
             ERROR("stored_key_create failed");
             break;
         }
@@ -1069,14 +1074,15 @@ sa_status ec_sign_ecdsa(
             break;
         }
 
-        if (header->param != SA_ELLIPTIC_CURVE_NIST_P256 && header->param != SA_ELLIPTIC_CURVE_NIST_P384 &&
-                header->param != SA_ELLIPTIC_CURVE_NIST_P521) {
+        if (header->type_parameters.curve != SA_ELLIPTIC_CURVE_NIST_P256 &&
+                header->type_parameters.curve != SA_ELLIPTIC_CURVE_NIST_P384 &&
+                header->type_parameters.curve != SA_ELLIPTIC_CURVE_NIST_P521) {
             ERROR("ED & X curves cannot be used for ECDSA");
             status = SA_STATUS_OPERATION_NOT_ALLOWED;
             break;
         }
 
-        evp_pkey = ec_import_private(header->param, key, key_length);
+        evp_pkey = ec_import_private(header->type_parameters.curve, key, key_length);
         if (evp_pkey == NULL) {
             ERROR("ec_import_private failed");
             break;
@@ -1229,13 +1235,14 @@ sa_status ec_sign_eddsa(
             break;
         }
 
-        if (header->param != SA_ELLIPTIC_CURVE_ED25519 && header->param != SA_ELLIPTIC_CURVE_ED448) {
+        if (header->type_parameters.curve != SA_ELLIPTIC_CURVE_ED25519 &&
+                header->type_parameters.curve != SA_ELLIPTIC_CURVE_ED448) {
             ERROR("P & X curves cannot be used for EDDSA");
             status = SA_STATUS_OPERATION_NOT_ALLOWED;
             break;
         }
 
-        evp_pkey = ec_import_private(header->param, key, key_length);
+        evp_pkey = ec_import_private(header->type_parameters.curve, key, key_length);
         if (evp_pkey == NULL) {
             ERROR("ec_import_private failed");
             break;
@@ -1341,7 +1348,10 @@ sa_status ec_generate_key(
         }
 
         EVP_PKEY_free(evp_pkey);
-        if (!stored_key_create(stored_key_generated, rights, NULL, SA_KEY_TYPE_EC, parameters->curve, key_size,
+        sa_type_parameters type_parameters;
+        memory_memset_unoptimizable(&type_parameters, 0, sizeof(type_parameters));
+        type_parameters.curve = parameters->curve;
+        if (!stored_key_create(stored_key_generated, rights, NULL, SA_KEY_TYPE_EC, &type_parameters, key_size,
                     generated, key_size)) {
             ERROR("stored_key_create failed");
             break;

@@ -130,12 +130,38 @@ bool ec_encode_signature(
         size_t in_length);
 
 /**
+ * Import DH public key.
+ *
+ * @param[in] in the DH public key bytes.
+ * @param[in] in_length the length of DH public key bytes
+ * @param[in] p the DH p value.
+ * @param[in] p_length the length of the DH p value.
+ * @param[in] g the DH g value.
+ * @param[in] g_length the length of the DH g value.
+ * @return
+ */
+EVP_PKEY* dh_import_public(
+        const uint8_t* in,
+        size_t in_length,
+        const uint8_t* p,
+        size_t p_length,
+        const uint8_t* g,
+        size_t g_length);
+
+/**
  * Creates an EVP_PKEY public key from an sa_key.
  *
  * @param[in] key the sa_key to create an EVP_PKEY from.
  * @return the EVP_PKEY.
  */
 EVP_PKEY* get_public_key(sa_key key);
+
+/**
+ * Set key rights to allow all operations.
+ *
+ * @param[out] rights key rights
+ */
+void rights_set_allow_all(sa_rights* rights);
 
 #ifdef __cplusplus
 }
