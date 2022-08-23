@@ -31,9 +31,7 @@ typedef struct {
 void* SaCryptoCipherMultipleThread::process_multiple_threads(void* args) {
     auto* thread_data = static_cast<thread_info*>(args);
     for (size_t i = 0; i < 100 && args != nullptr; i++) {
-        char message[30];
-        sprintf(message, "Thread %d-Iteration %zu", thread_data->thread_num, i);
-        ERROR(message);
+        INFO("Thread %d-Iteration %zu", thread_data->thread_num, i);
 
         cipher_parameters parameters;
         parameters.cipher_algorithm = SA_CIPHER_ALGORITHM_AES_CBC;

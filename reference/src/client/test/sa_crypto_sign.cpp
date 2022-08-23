@@ -214,7 +214,8 @@ namespace {
         size_t out_length = out.size();
         auto in = random(25);
 
-        sa_sign_parameters_rsa_pss parameters = {static_cast<sa_digest_algorithm>(UINT8_MAX), SA_DIGEST_ALGORITHM_SHA1, false, 20};
+        sa_sign_parameters_rsa_pss parameters =
+                {static_cast<sa_digest_algorithm>(UINT8_MAX), SA_DIGEST_ALGORITHM_SHA1, false, 20};
         sa_status status = sa_crypto_sign(out.data(), &out_length, SA_SIGNATURE_ALGORITHM_RSA_PSS, *key, in.data(),
                 in.size(), &parameters);
         if (status == SA_STATUS_OPERATION_NOT_SUPPORTED)

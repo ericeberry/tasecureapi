@@ -38,7 +38,6 @@ namespace {
 
         ASSERT_EQ(status, SA_STATUS_OK);
 
-
         sa_rights rights;
         sa_rights_set_allow_all(&rights);
 
@@ -62,7 +61,6 @@ namespace {
 
         ASSERT_EQ(status, SA_STATUS_OK);
 
-
         auto unwrapped_key = create_uninitialized_sa_key();
         ASSERT_NE(unwrapped_key, nullptr);
         status = sa_key_unwrap(unwrapped_key.get(), nullptr, SA_KEY_TYPE_SYMMETRIC, nullptr,
@@ -84,7 +82,6 @@ namespace {
             GTEST_SKIP() << "key type not supported";
 
         ASSERT_EQ(status, SA_STATUS_OK);
-
 
         sa_rights rights;
         sa_rights_set_allow_all(&rights);
@@ -110,7 +107,6 @@ namespace {
             GTEST_SKIP() << "key type not supported";
 
         ASSERT_EQ(status, SA_STATUS_OK);
-
 
         sa_rights rights;
         sa_rights_set_allow_all(&rights);
@@ -273,7 +269,6 @@ namespace {
             GTEST_SKIP() << "key type not supported";
 
         ASSERT_EQ(status, SA_STATUS_OK);
-
 
         sa_rights rights;
         sa_rights_set_allow_all(&rights);
